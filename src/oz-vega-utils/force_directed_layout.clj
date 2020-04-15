@@ -271,6 +271,20 @@
                            :encode      {}
                            :transform   []})))
 
+(defn add-node-labels
+  [vega sym nodes-sym text-color]
+  (-> vega
+      (update :marks conj {:name   sym
+                           :type   :text
+                           :from   {:data nodes-sym}
+                           :zindex 2
+                           :encode {:enter  (let [{:keys [stroke]} text-color]
+                                              {:text   {:field "name"}
+                                               :stroke {:value stroke}
+                                               :align  {:value "center"}})
+                                    :update {:x {:field "x"}
+                                             :y {:field "y"}}}})))
+
 (defn force-directed-layout
   [{:keys [nodes links]}
    & {:keys [canvas text-color labeled? sim]
@@ -287,6 +301,7 @@
         selected-node-sym "node"
         nodes-sym         :nodes
         links-sym         :links
+        node-labels-sym   :node-labels
         node-data-sym     "node-data"
         link-data-sym     "link-data"]
     (-> canvas
@@ -295,15 +310,7 @@
         (add-links links-sym links link-data-sym)
         (add-force-sim fix-sym restart-sym nodes-sym links-sym sim)
         (add-node-dragging selected-node-sym fix-sym nodes-sym)
-        (cond-> labeled? (update :marks conj {:type   :text
-                                              :from   {:data :nodes}
-                                              :zindex 2
-                                              :encode {:enter  (let [{:keys [stroke]} text-color]
-                                                                 {:text   {:field "name"}
-                                                                  :stroke {:value stroke}
-                                                                  :align  {:value "center"}})
-                                                       :update {:x {:field "x"}
-                                                                :y {:field "y"}}}})))))
+        (cond-> labeled? (add-node-labels node-labels-sym nodes-sym text-color)))))
 
 (comment
   ;; Initial Setup
