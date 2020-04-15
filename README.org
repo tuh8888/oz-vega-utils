@@ -79,7 +79,6 @@
 
    #+BEGIN_SRC clojure
 (def fl-with-forces (-> force-layout
-                      (fdl/add-node-dragging :nodes :links)
                       (fdl/add-force :nodes :collide
                         {:radius   {:name (ovu/prop-sym :nodes :radius)
                                     :init 10 :min 1 :max 50}
@@ -134,7 +133,7 @@
    #+END_SRC
 
    #+RESULTS:
-   : #'user/draggable-layoutnil
+   : #'oz-vega-utils.force-directed-layout/draggable-layoutnil
 
 ** Add labels
    Labels are added as text marks. Node labels appear on top of nodes. Link labels appear at the midpoint of their link. Labels can be colored just link nodes and links.
@@ -152,7 +151,7 @@
    #+END_SRC
 
    #+RESULTS:
-   : #'user/fl-labelednil
+   : #'oz-vega-utils.force-directed-layout/fl-labelednil
 
 
 ** Add gravity by group.
@@ -170,4 +169,4 @@
    #+END_SRC
 
    #+RESULTS:
-   : #'user/vega-with-gravitynil
+   : #'oz-vega-utils.force-directed-layout/vega-with-gravitynil
