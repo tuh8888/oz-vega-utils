@@ -124,6 +124,7 @@
                            :transform []}))))
 
 (defn add-links
+  "Add provided nodes to visualization."
   [vega sym links]
   (-> vega
     (update :data conj {:name (ovu/prop-sym sym :data) :values links})
@@ -135,13 +136,14 @@
                          :transform   []})))
 
 (defn add-node-labels
-  [vega nodes-sym label-prop]
-  (let [sym (ovu/prop-sym nodes-sym :labels)]
+  "Add labels to nodes in visualization. Uses label-prop as node label."
+  [vega nodes-mark label-prop]
+  (let [sym (ovu/prop-sym nodes-mark :labels)]
     (-> vega
-      (util/assoc-in-with-kv-index [:marks [:name nodes-sym] :encode :enter :label :field] label-prop)
+      (util/assoc-in-with-kv-index [:marks [:name nodes-mark] :encode :enter :label :field] label-prop)
       (update :marks conj {:name   sym
                            :type   :text
-                           :from   {:data nodes-sym}
+                           :from   {:data nodes-mark}
                            :zindex 2
                            :encode {:enter  {:text  {:field :label}
                                              :align {:value :center}}
