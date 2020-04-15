@@ -180,7 +180,7 @@
                          ["height" :left])
         focus-sym      (str sym "Focus")]
     (-> vega
-        (add-axis sym {:orient orient :data data :type :band :range "width" :field field})
+        (add-axis sym {:orient orient :data data :type :band :range range :field field})
         (update-in-with-kv-index [:marks [:name mark] :encode :enter] assoc focus-sym {:scale sym :field field :band 0.5})
         (add-force axis {axis      focus-sym
                          :strength strength}))))
