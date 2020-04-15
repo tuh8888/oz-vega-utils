@@ -308,14 +308,14 @@
       (add-force :center
                  {:x {:init (/ width 2)}
                   :y {:init (/ height 2)}})
-      #_(add-group-gravity "x-scale" :nodes {:axis     :x
-                                           :field    "group"
-                                           :data     "node-data"
-                                           :strength {:init 0.1 :min 0.1 :max 1 :step 0.1}})
+      (add-group-gravity "x-scale" :nodes {:axis     :x
+                                             :field    "group"
+                                             :data     "node-data"
+                                             :strength {:init 0.1 :min 0.1 :max 1 :step 0.1}})
       (add-group-gravity "y-scale" :nodes {:axis     :y
                                            :field    "group"
                                            :data     "node-data"
-                                           :strength {:init 0.1 :min 0.1 :max 1 :step 0.1}})
+                                           :strength {:init 0.5 :min 0.1 :max 2 :step 0.2}})
       #_(add-force :x
                    {:x        "xfocus"
                     :strength {:init 0.1 :min 0.1 :max 1 :step 0.1}})
