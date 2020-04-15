@@ -40,7 +40,9 @@
                             :strength strength}))))
 
 (defn add-force-sim
-  "Add a force simulation for the "
+  "Add a force simulation for the nodes and lines.
+  Provides restart, fix, and static syms.
+  provide an init value for static to create a toggle for static vs dynamic simulation."
   [vega nodes-mark links-mark {:keys [iterations static]
                                :or   {iterations 300
                                       static     {:init true}}}]
