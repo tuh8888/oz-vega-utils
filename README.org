@@ -15,17 +15,16 @@
 ** Setup
    First we require namespaces and load some data.
 
-  The data here has the form:
-  - nodes
-    - name
-    - id
-  - links
-    - source
-    - target
-    - value
+   The data here has the form:
+   - nodes
+     - name
+     - id
+   - links
+     - source
+     - target
+     - value
 
-  #+BEGIN_SRC clojure
-
+   #+BEGIN_SRC clojure
 (require
   '[oz-vega-utils.core :as ovu]
   '[oz-vega-utils.util :as util]
@@ -33,15 +32,15 @@
   '[oz.core :as oz])
 
 (def data (oz/load "https://github.com/vega/vega/raw/master/docs/data/miserables.json"))
+   #+END_SRC
 
-
- #+END_SRC
+   #+RESULTS:
+   : nil#'oz-vega-utils.force-directed-layout/data
 
 ** Make specification
    Next we make a default vega specification.
 
-  #+BEGIN_SRC clojure
-
+   #+BEGIN_SRC clojure
 (def width 1200)
 
 (def height 500)
@@ -51,8 +50,10 @@
              :description "A node-link diagram with force-directed layout, depicting character co-occurrence in the novel Les Misérables."})
 
 (def vega (ovu/vega-template canvas))
+   #+END_SRC
 
-  #+END_SRC
+   #+RESULTS:
+   : #'oz-vega-utils.force-directed-layout/width#'oz-vega-utils.force-directed-layout/height#'oz-vega-utils.force-directed-layout/canvas#'oz-vega-utils.force-directed-layout/vega
 
 ** Make force layout
    Now we add our nodes and links form our data to the specification.
@@ -62,55 +63,103 @@
    The force simulation defines a transformation on the marks according to forces which we will add later. The simulation can be static or dynamic and this is determined by the =:static= parameter. Parameters like this can either be provided as a single value (e.g. =true= or =false= in the case of this =:static= parameter which is boolean) or as a map with an initial value. If a map is provided, an input signal will be created with a corresponding UI for dynamically changing the value of that parameter. For the =:static= parameter, this will be a checkbox. If a value is provided instead of a map, no UI will be created.
 
    #+BEGIN_SRC clojure
-
 (def force-layout (-> vega
                     (fdl/add-nodes :nodes (:nodes data) :radius {:init 8})
                     (fdl/add-links :links (:links data))
                     (fdl/add-force-sim :nodes :links {:iterations 300
                                                       :shape      :line
                                                       :static     {:init false}})))
+   #+END_SRC
 
-(def draggable-layout (-> force-layout
-                        (fdl/add-node-dragging :nodes :links)))
+   #+RESULTS:
+   : #'oz-vega-utils.force-directed-layout/force-layout
 
-(def labeled-layout (-> draggable-layout
-                      (fdl/add-node-labels :nodes :name)
-                      (fdl/add-link-labels :links :value)))
+** Add forces
+   Without any forces, the nodes will be stuck in the corner. As we add forces, UI components will be created for their parameters if a map is provided for the parameter.
 
-(def colored-layout (-> labeled-layout
+   #+BEGIN_SRC clojure
+(def fl-with-forces (-> force-layout
+                      (fdl/add-node-dragging :nodes :links)
+                      (fdl/add-force :nodes :collide
+                        {:radius   {:name (ovu/prop-sym :nodes :radius)
+                                    :init 10 :min 1 :max 50}
+                         :strength {:init 0.7 :min 0.1 :max 1 :step 0.1}})
+                      (fdl/add-force :nodes :nbody
+                        {:strength        {:init -30 :min -100 :max 10}
+                         :theta           {:init 0.9 :min 0.1 :max 1 :step 0.1}
+                         #_#_:distanceMin {:init 1 :min 0 :max 100}
+                         #_#_:distanceMax {:init 1 :min 0 :max 100}})
+                      (fdl/add-force :nodes :link
+                        {:links        :links_data
+                         :distance     {:init 30 :min 5 :max 100}
+                         #_#_:strength {:init 0.7 :min 0.1 :max 1 :step 0.1}})
+                      (fdl/add-force :nodes :center
+                        {:x {:init (/ width 2)}
+                         :y {:init (/ height 2)}})))
 
+(oz/view! fl-with-forces :mode :vega)
+   #+END_SRC
+
+   #+RESULTS:
+   : #'oz-vega-utils.force-directed-layout/fl-with-forcesnil
+
+** Add colors
+   Next, we add colors to the marks for our nodes and links.
+
+   #+BEGIN_SRC clojure
+(def colored-layout (-> fl-with-forces
                       (ovu/add-colors :nodes {:type   :ordinal
                                               :data   :nodes_data
                                               :field  :group
                                               :stroke "white"})
                       (ovu/add-colors :links {:type        :static
                                               :strokeWidth 0.5
-                                              :stroke      "#ccc"})
-                      (ovu/add-colors :nodes_labels {:type   :static
-                                                     :stroke "black"})
-                      (ovu/add-colors :links_labels {:type   :static
-                                                     :stroke "red"})))
+                                              :stroke      "#ccc"})))
 
-(def vega-with-forces (-> colored-layout
-                        (fdl/add-force :nodes :collide
-                          {:radius   {:name (ovu/prop-sym :nodes :radius)
-                                      :init 10 :min 1 :max 50}
-                           :strength {:init 0.7 :min 0.1 :max 1 :step 0.1}})
-                        (fdl/add-force :nodes :nbody
-                          {:strength        {:init -30 :min -100 :max 10}
-                           :theta           {:init 0.9 :min 0.1 :max 1 :step 0.1}
-                           #_#_:distanceMin {:init 1 :min 0 :max 100}
-                           #_#_:distanceMax {:init 1 :min 0 :max 100}})
-                        (fdl/add-force :nodes :link
-                          {:links        :links_data
-                           :distance     {:init 30 :min 5 :max 100}
-                           #_#_:strength {:init 0.7 :min 0.1 :max 1 :step 0.1}})
-                        (fdl/add-force :nodes :center
-                          {:x {:init (/ width 2)}
-                           :y {:init (/ height 2)}})))
+(oz/view! colored-layout :mode :vega)
+   #+END_SRC
 
-(def vega-with-gravity (-> vega-with-forces
+   #+RESULTS:
+   : #'oz-vega-utils.force-directed-layout/colored-layoutnil
 
+** Add dragging.
+   User input for the network itself.
+
+   #+BEGIN_SRC  clojure
+(def draggable-layout (-> colored-layout
+                        (fdl/add-node-dragging :nodes :links)))
+
+;; TODO This doesn't work. Produces: unrecognized signal name: "nodes_radius"
+(oz/view! draggable-layout :mode :vega)
+   #+END_SRC
+
+   #+RESULTS:
+   : #'user/draggable-layoutnil
+
+** Add labels
+   Labels are added as text marks. Node labels appear on top of nodes. Link labels appear at the midpoint of their link. Labels can be colored just link nodes and links.
+
+   #+BEGIN_SRC clojure
+(def fl-labeled (-> draggable-layout
+                  (fdl/add-node-labels :nodes :name)
+                  (fdl/add-link-labels :links :value)
+                  (ovu/add-colors :nodes_labels {:type   :static
+                                                 :stroke "black"})
+                  (ovu/add-colors :links_labels {:type   :static
+                                                 :stroke "red"})))
+
+(oz/view! fl-labeled :mode :vega)
+   #+END_SRC
+
+   #+RESULTS:
+   : #'user/fl-labelednil
+
+
+** Add gravity by group.
+   Gravity can be added to separate nodes by some group field.
+
+   #+BEGIN_SRC clojure
+(def vega-with-gravity (-> fl-labeled
                          (fdl/add-group-gravity :nodes {:axis     :x
                                                         :field    :group
                                                         :strength {:init 0.1 :min 0.1 :max 1 :step 0.1}})
@@ -119,3 +168,6 @@
                                                         :strength {:init 0.5 :min 0.1 :max 2 :step 0.2}})))
 (oz/view! vega-with-gravity :mode :vega)
    #+END_SRC
+
+   #+RESULTS:
+   : #'user/vega-with-gravitynil
