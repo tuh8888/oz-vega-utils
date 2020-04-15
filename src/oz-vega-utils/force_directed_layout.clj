@@ -2,13 +2,25 @@
   (:require [oz.core :as oz]
             [clojure.string :as str]))
 
+(defn map-if
+  [f pred coll]
+  (map #(cond-> % (pred %) f) coll))
+
+(defn js
+  [s & syms]
+  (if (seq syms)
+    (->> syms
+      (map-if name keyword?)
+      (apply format s))
+    s))
+
 (defn index-of-elem-with-kv
   [coll k v]
   (->> coll
-       (map-indexed vector)
-       (filter #(= v (-> % second k)))
-       first
-       first))
+    (map-indexed vector)
+    (filter #(= v (-> % second k)))
+    first
+    first))
 
 (defn update-in-with-fn
   [coll [fn-or-k & fns-and-ks] f & args]
@@ -26,12 +38,8 @@
             (fn-or-k coll)
             fn-or-k)]
     (-> coll
-        (get k)
-        (cond-> (seq fns-and-ks) (get-in-with-fn fns-and-ks)))))
-
-(defn map-if
-  [f pred coll]
-  (map #(cond-> % (pred %) f) coll))
+      (get k)
+      (cond-> (seq fns-and-ks) (get-in-with-fn fns-and-ks)))))
 
 (comment
   (map-if inc even? [100 10 3 1001 5]))
@@ -156,11 +164,11 @@
                 :width   1200
                 :padding 10}]
     (-> canvas
-        vega-template
-        (assoc :marks [{:name   :nodes
-                        :encode {:enter {:fill {}}}}])
-        (add-colors "color" :nodes {:data "node-data" :field "group" :type :ordinal :scheme "xyc"})
-        #_(oz/view! :mode :vega))))
+      vega-template
+      (assoc :marks [{:name   :nodes
+                      :encode {:enter {:fill {}}}}])
+      (add-colors "color" :nodes {:data :node-data :field "group" :type :ordinal :scheme "xyc"})
+      #_(oz/view! :mode :vega))))
 
 (defn add-axis
   [vega sym {:keys [orient data field type range]}]
@@ -192,76 +200,80 @@
 
 (comment
   (-> canvas
-      vega-template
-      (add-group-gravity "xscale" :nodes "group" "node-data" {:init 0.1 :min 0.1 :max 1 :step 0.1})))
+    vega-template
+    (add-group-gravity "xscale" :nodes "group" :node-data {:init 0.1 :min 0.1 :max 1 :step 0.1})))
 
 (defn add-force-sim
-  [vega fix-sym restart-sym nodes-sym links-sym {:keys [iterations static]}]
+  [vega fix-sym restart-sym nodes-sym links-sym {:keys [iterations static]
+                                                 :or   {iterations 300
+                                                        static     {:init true
+                                                                    :sym  "static"}}}]
   (-> vega
-      (cond-> (:sym static) (update :signals conj {:name  (:sym static)
-                                                   :value (:init static)
-                                                   :bind  {:input "checkbox"}}))
-      (update :signals conj {:name  fix-sym
-                             :value false
-                             :on    []})
-      (update :signals conj {:name  restart-sym
-                             :value false
-                             :on    [{:events {:signal fix-sym}
-                                      :update (format "%s && %s.length" fix-sym fix-sym)}]})
-      (update-in-with-kv-index [:marks [:name nodes-sym] :transform] conj {:type       :force
-                                                                           :iterations iterations
-                                                                           :restart    {:signal restart-sym}
-                                                                           :static     (cond-> static
-                                                                                         (:sym static) (->> :sym (hash-map :signal)))
-                                                                           :signal     :force})
-      (update-in-with-kv-index [:marks [:name links-sym] :transform] conj {:type    :linkpath
-                                                                           :require {:signal :force}
-                                                                           :shape   :line
-                                                                           :sourceX "datum.source.x"
-                                                                           :sourceY "datum.source.y"
-                                                                           :targetX "datum.target.x"
-                                                                           :targetY "datum.target.y"})))
+    (cond-> (:sym static) (update :signals conj {:name  (:sym static)
+                                                 :value (:init static)
+                                                 :bind  {:input "checkbox"}}))
+    (update :signals conj {:name  fix-sym
+                           :value false
+                           :on    []})
+    (update :signals conj {:name  restart-sym
+                           :value false
+                           :on    [{:events {:signal fix-sym}
+                                    :update (js "%s && %s.length" fix-sym fix-sym)}]})
+    (update-in-with-kv-index [:marks [:name nodes-sym] :transform] conj {:type       :force
+                                                                         :iterations iterations
+                                                                         :restart    {:signal restart-sym}
+                                                                         :static     (cond-> static
+                                                                                       (:sym static) (->> :sym (hash-map :signal)))
+                                                                         :signal     :force})
+    (update-in-with-kv-index [:marks [:name links-sym] :transform] conj {:type    :linkpath
+                                                                         :require {:signal :force}
+                                                                         :shape   :line
+                                                                         :sourceX "datum.source.x"
+                                                                         :sourceY "datum.source.y"
+                                                                         :targetX "datum.target.x"
+                                                                         :targetY "datum.target.y"})))
 
 (defn add-node-dragging
   [vega selected-node-sym fix-sym nodes-sym]
   (-> vega
-      (update :signals conj {:name  selected-node-sym
-                             :value nil
-                             :on    [{:events "symbol:mouseover"
-                                      :update (format "%s === true ? item() : node" fix-sym)}]})
+    (update :signals conj {:name  selected-node-sym
+                           :value nil
+                           :on    [{:events (js "symbol:mouseover")
+                                    :update (js "%s === true ? item() : node" fix-sym)}]})
 
-      (update-in-with-kv-index [:signals [:name fix-sym] :on] conj {:events "symbol:mouseout[!event.buttons], window:mouseup"
-                                                                    :update "false"})
-      (update-in-with-kv-index [:signals [:name fix-sym] :on] conj {:events "symbol:mouseover"
-                                                                    :update (format "%s || true" fix-sym)})
-      (update-in-with-kv-index [:signals [:name fix-sym] :on] conj {:events "[symbol:mousedown, window:mouseup] > window:mousemove!"
-                                                                    :update "xy()"
-                                                                    :force  true})
-      (update-in-with-kv-index [:marks [:name nodes-sym] :on] conj {:trigger fix-sym
-                                                                    :modify  selected-node-sym
-                                                                    :values  (format "%s === true ? {fx: node.x, fy: node.y} : {fx: %s[0], fy: %s[1]}"
-                                                                                     fix-sym fix-sym
-                                                                                     fix-sym)})
-      (update-in-with-kv-index [:marks [:name nodes-sym] :on] conj {:trigger (format "!%s" fix-sym)
-                                                                    :modify  selected-node-sym
-                                                                    :values  "{fx: null, fy: null}"})
-      (update-in-with-kv-index [:marks [:name nodes-sym] :encode :update] assoc :cursor {:value :pointer})))
+    (update-in-with-kv-index [:signals [:name fix-sym] :on] conj {:events (js "symbol:mouseout[!event.buttons], window:mouseup")
+                                                                  :update "false"})
+    (update-in-with-kv-index [:signals [:name fix-sym] :on] conj {:events (js "symbol:mouseover")
+                                                                  :update (js "%s || true" fix-sym)})
+    (update-in-with-kv-index [:signals [:name fix-sym] :on] conj {:events (js "[symbol:mousedown, window:mouseup] > window:mousemove!")
+                                                                  :update (js "xy()")
+                                                                  :force  true})
+    (update-in-with-kv-index [:marks [:name nodes-sym] :on] conj {:trigger fix-sym
+                                                                  :modify  selected-node-sym
+                                                                  :values  (js "%s === true ? {fx: node.x, fy: node.y} : {fx: %s[0], fy: %s[1]}"
+                                                                             fix-sym
+                                                                             fix-sym
+                                                                             fix-sym)})
+    (update-in-with-kv-index [:marks [:name nodes-sym] :on] conj {:trigger (js "!%s" fix-sym)
+                                                                  :modify  selected-node-sym
+                                                                  :values  (js "{fx: null, fy: null}")})
+    (update-in-with-kv-index [:marks [:name nodes-sym] :encode :update] assoc :cursor {:value :pointer})))
 
 (defn add-nodes
-  [vega nodes-sym data-sym nodes node-radius-sym]
+  [vega nodes-sym data-sym node-radius-sym nodes]
   (-> vega
-      (update :data conj {:name data-sym :values nodes})
-      (update :marks conj {:name      nodes-sym
-                           :type      :symbol
-                           :zindex    1
-                           :from      {:data data-sym}
-                           :on        []
-                           :encode    {:enter  {:name {:field "name"}}
-                                       :update {:size {:signal (str "2 * " node-radius-sym " * " node-radius-sym)}}}
-                           :transform []})))
+    (update :data conj {:name data-sym :values nodes})
+    (update :marks conj {:name      nodes-sym
+                         :type      :symbol
+                         :zindex    1
+                         :from      {:data data-sym}
+                         :on        []
+                         :encode    {:enter  {:name {:field "name"}}
+                                     :update {:size {:signal (js "2 * %s * %s" node-radius-sym node-radius-sym)}}}
+                         :transform []})))
 
 (defn add-links
-  [vega links-sym links data-sym]
+  [vega links-sym data-sym links]
   (-> vega
       (update :data conj {:name data-sym :values links})
       (update :marks conj {:name        links-sym
@@ -283,32 +295,6 @@
                                     :update {:x {:field "x"}
                                              :y {:field "y"}}}})))
 
-(defn force-directed-layout
-  [{:keys [nodes links]}
-   & {:keys [canvas labeled? sim]
-      :or   {canvas     {:height  500
-                         :width   700
-                         :padding 0}
-             sim        {:static     {:init true
-                                      :sym  "static"}
-                         :iterations 300}}}]
-  (let [node-radius-sym   "nodeRadius"
-        fix-sym           "fix"
-        restart-sym       "restart"
-        selected-node-sym "node"
-        nodes-sym         :nodes
-        links-sym         :links
-        node-labels-sym   :node-labels
-        node-data-sym     "node-data"
-        link-data-sym     "link-data"]
-    (-> canvas
-        vega-template
-        (add-nodes nodes-sym node-data-sym nodes node-radius-sym)
-        (add-links links-sym links link-data-sym)
-        (add-force-sim fix-sym restart-sym nodes-sym links-sym sim)
-        (add-node-dragging selected-node-sym fix-sym nodes-sym)
-        (cond-> labeled? (add-node-labels node-labels-sym nodes-sym)))))
-
 (comment
   ;; Initial Setup
   (do
@@ -317,24 +303,25 @@
 
 (let [width  1200
       height 500]
-  (-> data
-    (force-directed-layout
-      :description "A node-link diagram with force-directed layout, depicting character co-occurrence in the novel Les Misérables."
-      :labeled? true
-      :canvas {:width  width
-               :height height}
-      :sim {:static
-            {:init false
-             :sym  "static"}})
-
+  (-> {:width       width
+       :height      height
+       :description "A node-link diagram with force-directed layout, depicting character co-occurrence in the novel Les Misérables."}
+    vega-template
+    (add-nodes :nodes :node-data "nodeRadius" (:nodes data))
+    (add-links :links "link-data" (:links data))
+    (add-force-sim :fix :restart :nodes :links {:iterations 300
+                                                :static     {:init false
+                                                             :sym  "static"}})
+    (add-node-dragging :node :fix :nodes)
+    (add-node-labels :node-labels :nodes)
     (add-colors "node-color" :nodes {:type   :ordinal
-                                     :data   "node-data"
+                                     :data   :node-data
                                      :field  "group"
                                      :stroke "white"})
     (add-colors "link-color" :links {:type        :static
                                      :strokeWidth 0.5
                                      :stroke      "#ccc"})
-    (add-colors "node-label-color" :node-labels {:type :static
+    (add-colors "node-label-color" :node-labels {:type   :static
                                                  :stroke "black"})
     (add-force :collide
       {:radius   {:name "nodeRadius"
@@ -354,10 +341,10 @@
        :y {:init (/ height 2)}})
     (add-group-gravity "x-scale" :nodes {:axis     :x
                                          :field    "group"
-                                         :data     "node-data"
+                                         :data     :node-data
                                          :strength {:init 0.1 :min 0.1 :max 1 :step 0.1}})
     (add-group-gravity "y-scale" :nodes {:axis     :y
                                          :field    "group"
-                                         :data     "node-data"
+                                         :data     :node-data
                                          :strength {:init 0.5 :min 0.1 :max 2 :step 0.2}})
     (oz/view! :mode :vega)))
