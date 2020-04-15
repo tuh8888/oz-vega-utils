@@ -160,14 +160,23 @@
   (let [sym (ovu/prop-sym links-mark :labels)]
     (-> vega
       (cache-label-prop-in-mark-data links-mark label-prop)
-      (update :marks conj {:name          sym
-                           :type          :text
-                           :from          {:data links-mark}
-                           :zindex        2
-                           :encode        {:enter  {:text  {:field :label}
-                                                    :align {:value :center}}
-                                           :update {:x {:field "datum.source.x"}
-                                                    :y {:field "datum.source.y"}}}}))))
+      (update :signals conj {})
+      (update :marks conj {:name      sym
+                           :type      :text
+                           :from      {:data links-mark}
+                           :zindex    2
+                           :encode    {:enter  {:text  {:field :label}
+                                                :align {:value :center}}
+                                       :update {:sx {:field "datum.source.x"}
+                                                :sy {:field "datum.source.y"}
+                                                :tx {:field "datum.target.x"}
+                                                :ty {:field "datum.target.y"}}}
+                           :transform [{:type :formula
+                                        :as   :x
+                                        :expr "((datum.sx + datum.tx) / 2)"}
+                                       {:type :formula
+                                        :as   :y
+                                        :expr "(datum.sy + datum.ty) / 2"}]}))))
 
 (comment
   ;; Initial Setup
@@ -185,7 +194,7 @@
     (add-nodes :nodes (:nodes data) :radius {:init 8})
     (add-links :links (:links data))
     (add-force-sim :nodes :links {:iterations 300
-                                  :shape      :orthogonal
+                                  :shape      :line
                                   :static     {:init false}})
     (add-node-dragging :nodes :links)
     (add-node-labels :nodes :name)
