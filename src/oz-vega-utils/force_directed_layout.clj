@@ -4,10 +4,14 @@
             [oz-vega-utils.util :as util]))
 
 (defn add-force
-  [m force props]
+  "Add a force to the layout of data displayed in mark.
+  mark is the name of a mark
+  force is the type the force
+  props are additional properties for the force. If a map is provided, these will be passed to add-range."
+  [m mark force props]
   (let [prop-sel-map (ovu/props->prop-sel-map force props)
         m            (ovu/add-signals m prop-sel-map)]
-    (util/update-in-with-kv-index m [:marks [:name :nodes] :transform [:type :force] :forces]
+    (util/update-in-with-kv-index m [:marks [:name mark] :transform [:type :force] :forces]
       (fn [forces]
         (->> prop-sel-map
           (util/map-vals #(cond-> % (coll? %) (->> :name (hash-map :signal))))
@@ -18,8 +22,8 @@
        :marks   [{:name      :nodes
                   :transform [{:type   :force
                                :forces []}]}]}
-      (add-force :collide {:radius {:init 1 :min 5 :max 6}})
-      ((juxt :signals #(-> % :marks first :transform first :forces first)))))
+    (add-force :nodes :collide {:radius {:init 1 :min 5 :max 6}})
+    ((juxt :signals #(-> % :marks first :transform first :forces first)))))
 
 (defn add-group-gravity
   [vega sym mark {:keys [field data strength axis]}]
@@ -30,8 +34,8 @@
     (-> vega
       (ovu/add-axis sym {:orient orient :data data :type :band :range range :field field})
       (util/assoc-in-with-kv-index [:marks [:name mark] :encode :enter focus-sym] {:scale sym :field field :band 0.5})
-      (add-force axis {axis      focus-sym
-                       :strength strength}))))
+      (add-force mark axis {axis      focus-sym
+                            :strength strength}))))
 
 (defn add-force-sim
   [vega fix-sym restart-sym nodes-sym links-sym {:keys [iterations static]
@@ -160,20 +164,20 @@
                             :stroke      "#ccc"})
     (ovu/add-colors :nodes_labels {:type   :static
                                    :stroke "black"})
-    (add-force :collide
+    (add-force :nodes :collide
       {:radius   {:name :nodes_radius
                   :init 10 :min 1 :max 50}
        :strength {:init 0.7 :min 0.1 :max 1 :step 0.1}})
-    (add-force :nbody
+    (add-force :nodes :nbody
       {:strength        {:init -30 :min -100 :max 10}
        :theta           {:init 0.9 :min 0.1 :max 1 :step 0.1}
        #_#_:distanceMin {:init 1 :min 0 :max 100}
        #_#_:distanceMax {:init 1 :min 0 :max 100}})
-    (add-force :link
+    (add-force :nodes :link
       {:links        :links_data
        :distance     {:init 30 :min 5 :max 100}
        #_#_:strength {:init 0.7 :min 0.1 :max 1 :step 0.1}})
-    (add-force :center
+    (add-force :nodes :center
       {:x {:init (/ width 2)}
        :y {:init (/ height 2)}})
     (add-group-gravity :x_scale :nodes {:axis     :x
