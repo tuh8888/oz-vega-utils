@@ -43,8 +43,9 @@
   "Add a force simulation for the nodes and lines.
   Provides restart, fix, and static syms.
   provide an init value for static to create a toggle for static vs dynamic simulation."
-  [vega nodes-mark links-mark {:keys [iterations static]
+  [vega nodes-mark links-mark {:keys [iterations static shape link-labels?]
                                :or   {iterations 300
+                                      shape      :line
                                       static     {:init true}}}]
   (let [fix-sym     (ovu/prop-sym nodes-mark links-mark :fix)
         restart-sym (ovu/prop-sym nodes-mark links-mark :restart)
@@ -68,7 +69,7 @@
                                                                                  :signal     :force})
       (util/update-in-with-kv-index [:marks [:name links-mark] :transform] conj {:type    :linkpath
                                                                                  :require {:signal :force}
-                                                                                 :shape   :line
+                                                                                 :shape   shape
                                                                                  :sourceX "datum.source.x"
                                                                                  :sourceY "datum.source.y"
                                                                                  :targetX "datum.target.x"
@@ -131,16 +132,19 @@
     (update :marks conj {:name        sym
                          :type        :path
                          :from        {:data (ovu/prop-sym sym :data)}
-                         :interactive false
-                         :encode      {}
-                         :transform   []})))
+                         :interactive false})))
+
+(defn cache-label-prop-in-mark-data
+  [vega mark label-prop]
+  (-> vega
+    (util/assoc-in-with-kv-index [:marks [:name mark] :encode :enter :label :field] label-prop)))
 
 (defn add-node-labels
   "Add labels to nodes in visualization. Uses label-prop as node label."
   [vega nodes-mark label-prop]
   (let [sym (ovu/prop-sym nodes-mark :labels)]
     (-> vega
-      (util/assoc-in-with-kv-index [:marks [:name nodes-mark] :encode :enter :label :field] label-prop)
+      (cache-label-prop-in-mark-data nodes-mark label-prop)
       (update :marks conj {:name   sym
                            :type   :text
                            :from   {:data nodes-mark}
@@ -149,6 +153,21 @@
                                              :align {:value :center}}
                                     :update {:x {:field :x}
                                              :y {:field :y}}}}))))
+
+(defn add-link-labels
+  "Add labels to links in visualization. Uses label-prop as node label"
+  [vega links-mark label-prop]
+  (let [sym (ovu/prop-sym links-mark :labels)]
+    (-> vega
+      (cache-label-prop-in-mark-data links-mark label-prop)
+      (update :marks conj {:name          sym
+                           :type          :text
+                           :from          {:data links-mark}
+                           :zindex        2
+                           :encode        {:enter  {:text  {:field :label}
+                                                    :align {:value :center}}
+                                           :update {:x {:field "datum.source.x"}
+                                                    :y {:field "datum.source.y"}}}}))))
 
 (comment
   ;; Initial Setup
@@ -166,9 +185,11 @@
     (add-nodes :nodes (:nodes data) :radius {:init 8})
     (add-links :links (:links data))
     (add-force-sim :nodes :links {:iterations 300
+                                  :shape      :orthogonal
                                   :static     {:init false}})
     (add-node-dragging :nodes :links)
     (add-node-labels :nodes :name)
+    (add-link-labels :links :value)
     (ovu/add-colors :nodes {:type   :ordinal
                             :data   :nodes_data
                             :field  :group
@@ -178,6 +199,8 @@
                             :stroke      "#ccc"})
     (ovu/add-colors :nodes_labels {:type   :static
                                    :stroke "black"})
+    (ovu/add-colors :links_labels {:type   :static
+                                   :stroke "red"})
     (add-force :nodes :collide
       {:radius   {:name (ovu/prop-sym :nodes :radius)
                   :init 10 :min 1 :max 50}
