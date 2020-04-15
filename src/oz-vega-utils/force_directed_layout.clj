@@ -190,40 +190,6 @@
       vega-template
       (add-group-gravity "xscale" :nodes "group" "node-data" {:init 0.1 :min 0.1 :max 1 :step 0.1})))
 
-(defn add-force-sim
-  [vega fix-sym restart-sym static-sym nodes-sym selected-node-sym {:keys [iterations static?]}]
-  (-> vega
-      (update :signals conj {:name  static-sym
-                             :value static?
-                             :bind  {:input "checkbox"}})
-      (update :signals conj {:description "State variable for active node fix status."
-                             :name        fix-sym
-                             :value       false
-                             :on          [{:events "symbol:mouseout[!event.buttons], window:mouseup"
-                                            :update "false"}
-                                           {:events "symbol:mouseover"
-                                            :update (format "%s || true" fix-sym)}
-                                           {:events "[symbol:mousedown, window:mouseup] > window:mousemove!"
-                                            :update "xy()"
-                                            :force  true}]})
-      (update :signals conj {:description "Graph node most recently interacted with."
-                             :name        selected-node-sym
-                             :value       nil
-                             :on          [{:events "symbol:mouseover"
-                                            :update (format "%s === true ? item() : node" fix-sym)}]})
-      (update-in-with-kv-index [:marks [:name nodes-sym] :on] conj {:trigger fix-sym
-                                                                    :modify  selected-node-sym
-                                                                    :values  (format "%s === true ? {fx: node.x, fy: node.y} : {fx: %s[0], fy: %s[1]}"
-                                                                                     fix-sym fix-sym fix-sym)})
-      (update-in-with-kv-index [:marks [:name nodes-sym] :on] conj {:trigger (format "!%s" fix-sym) :modify selected-node-sym :values "{fx: null, fy: null}"})
-      (update-in-with-kv-index [:marks [:name nodes-sym] :encode :update :cursor] assoc :value :pointer)
-      (update-in-with-kv-index [:marks [:name nodes-sym] :transform] conj
-                               {:type       :force
-                                :iterations iterations
-                                :restart    {:signal restart-sym}
-                                :static     {:signal static-sym}
-                                :signal     :force})))
-
 (defn add-nodes
   [vega nodes-sym data-sym nodes node-radius-sym node-color]
   (-> vega
@@ -239,6 +205,30 @@
                                       :name   {:field "name"}})
                            :update {:size {:signal (str "2 * " node-radius-sym " * " node-radius-sym)}}}
                :transform []})))
+
+(defn add-force-sim
+  [vega fix-sym restart-sym static-sym nodes-sym selected-node-sym {:keys [iterations static?] :as sim}]
+  (-> vega
+      (update :signals conj {:name  static-sym
+                             :value (:static? sim)
+                             :bind  {:input "checkbox"}})
+      (update :signals conj {:name  fix-sym
+                             :value false
+                             :on    [{:events "symbol:mouseout[!event.buttons], window:mouseup"
+                                      :update "false"}
+                                     {:events "symbol:mouseover"
+                                      :update (format "%s || true" fix-sym)}
+                                     {:events "[symbol:mousedown, window:mouseup] > window:mousemove!"
+                                      :update "xy()"
+                                      :force  true}]})
+      (update :signals conj {:name  selected-node-sym
+                             :value nil
+                             :on    [{:events "symbol:mouseover"
+                                      :update (format "%s === true ? item() : node" fix-sym)}]})
+      (update :signals conj {:name  restart-sym
+                             :value false
+                             :on    [{:events {:signal fix-sym}
+                                      :update (format "%s && %s.length" fix-sym fix-sym)}]})))
 
 (defn force-directed-layout
   [{:keys [nodes links]}
@@ -262,52 +252,29 @@
         vega-template
         (update :data conj {:name node-data-sym :values nodes})
         (update :data conj {:name link-data-sym :values links})
-        (update :signals conj {:name  static-sym
-                                 :value (:static? sim)
-                                 :bind  {:input "checkbox"}})
-        (update :signals conj {:description "State variable for active node fix status."
-                                 :name        fix-sym
-                                 :value       false
-                                 :on          [{:events "symbol:mouseout[!event.buttons], window:mouseup"
-                                                :update "false"}
-                                               {:events "symbol:mouseover"
-                                                :update (format "%s || true" fix-sym)}
-                                               {:events "[symbol:mousedown, window:mouseup] > window:mousemove!"
-                                                :update "xy()"
-                                                :force  true}]})
-        (update :signals conj {:description "Graph node most recently interacted with."
-                                 :name        node-sym
-                                 :value       nil
-                                 :on          [{:events "symbol:mouseover"
-                                                :update (format "%s === true ? item() : node" fix-sym)}]})
-        (update :signals conj {:description "Flag to restart Force simulation upon data changes."
-                                 :name        restart-sym
-                                 :value       false
-                                 :on          [{:events {:signal fix-sym}
-                                                :update (format "%s && %s.length" fix-sym fix-sym)}]})
         (update :marks conj {:name      :nodes
-                               :type      :symbol
-                               :zindex    1
-                               :from      {:data node-data-sym}
-                               :on        [{:trigger fix-sym
-                                            :modify  node-sym
-                                            :values  (format "%s === true ? {fx: node.x, fy: node.y} : {fx: %s[0], fy: %s[1]}" fix-sym fix-sym fix-sym)}
-                                           {:trigger (format "!%s" fix-sym)
-                                            :modify  node-sym
-                                            :values  "{fx: null, fy: null}"}]
-                               :encode    {:enter  (let [{:keys [stroke]} node-color]
-                                                     {:stroke {:value stroke}
-                                                      :name   {:field "name"}})
-                                           :update {:size   {:signal (str "2 * " node-radius-sym " * " node-radius-sym)}
-                                                    :cursor {:value :pointer}}}
-                               :transform [{:type       :force
-                                            :iterations (:iterations sim)
-                                            :restart    {:signal restart-sym}
-                                            :static     {:signal static-sym}
-                                            :signal     :force}]})
+                             :type      :symbol
+                             :zindex    1
+                             :from      {:data node-data-sym}
+                             :on        [{:trigger fix-sym
+                                          :modify  node-sym
+                                          :values  (format "%s === true ? {fx: node.x, fy: node.y} : {fx: %s[0], fy: %s[1]}" fix-sym fix-sym fix-sym)}
+                                         {:trigger (format "!%s" fix-sym)
+                                          :modify  node-sym
+                                          :values  "{fx: null, fy: null}"}]
+                             :encode    {:enter  (let [{:keys [stroke]} node-color]
+                                                   {:stroke {:value stroke}
+                                                    :name   {:field "name"}})
+                                         :update {:size   {:signal (str "2 * " node-radius-sym " * " node-radius-sym)}
+                                                  :cursor {:value :pointer}}}
+                             :transform [{:type       :force
+                                          :iterations (:iterations sim)
+                                          :restart    {:signal restart-sym}
+                                          :static     {:signal static-sym}
+                                          :signal     :force}]})
 
         #_(add-nodes :nodes node-data-sym nodes node-radius-sym node-color)
-        #_(add-force-sim fix-sym restart-sym static-sym :nodes node-sym sim)
+        (add-force-sim fix-sym restart-sym static-sym :nodes node-sym sim)
         (update :marks conj {:type        :path
                              :from        {:data link-data-sym}
                              :interactive false
