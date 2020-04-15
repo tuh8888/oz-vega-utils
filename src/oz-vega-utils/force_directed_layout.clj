@@ -281,7 +281,7 @@
                            :zindex    1
                            :from      {:data (data-sym sym)}
                            :on        []
-                           :encode    {:enter  {:name {:field "name"}} ; TODO move to add-node-labels
+                           :encode    {:enter  {} ; TODO move to add-node-labels
                                        :update {:size {:signal (js "2 * %s * %s" r r)}}}
                            :transform []}))))
 
@@ -297,16 +297,17 @@
                          :transform   []})))
 
 (defn add-node-labels
-  [vega sym nodes-sym]
+  [vega sym nodes-sym label-prop]
   (-> vega
-      (update :marks conj {:name   sym
-                           :type   :text
-                           :from   {:data nodes-sym}
-                           :zindex 2
-                           :encode {:enter  {:text  {:field "name"}
-                                             :align {:value "center"}}
-                                    :update {:x {:field "x"}
-                                             :y {:field "y"}}}})))
+    (update-in-with-kv-index [:marks [:name nodes-sym] :encode :enter] assoc :label {:field label-prop})
+    (update :marks conj {:name   sym
+                         :type   :text
+                         :from   {:data nodes-sym}
+                         :zindex 2
+                         :encode {:enter  {:text  {:field :label}
+                                           :align {:value :center}}
+                                  :update {:x {:field :x}
+                                           :y {:field :y}}}})))
 
 (comment
   ;; Initial Setup
@@ -325,12 +326,12 @@
     (add-links :links (:links data))
     (add-force-sim :fix :restart :nodes :links {:iterations 300
                                                 :static     {:init false
-                                                             :sym  "static"}})
+                                                             :sym  :static}})
     (add-node-dragging :node :fix :nodes)
-    (add-node-labels :node-labels :nodes)
+    (add-node-labels :node-labels :nodes :name)
     (add-colors :node-color :nodes {:type   :ordinal
                                     :data   :nodes_data
-                                    :field  "group"
+                                    :field  :group
                                     :stroke "white"})
     (add-colors :link-color :links {:type        :static
                                     :strokeWidth 0.5
@@ -353,12 +354,12 @@
     (add-force :center
       {:x {:init (/ width 2)}
        :y {:init (/ height 2)}})
-    (add-group-gravity "x-scale" :nodes {:axis     :x
-                                         :field    "group"
-                                         :data     :nodes_data
-                                         :strength {:init 0.1 :min 0.1 :max 1 :step 0.1}})
-    (add-group-gravity "y-scale" :nodes {:axis     :y
-                                         :field    "group"
-                                         :data     :nodes_data
-                                         :strength {:init 0.5 :min 0.1 :max 2 :step 0.2}})
+    (add-group-gravity :x_scale :nodes {:axis     :x
+                                        :field    :group
+                                        :data     :nodes_data
+                                        :strength {:init 0.1 :min 0.1 :max 1 :step 0.1}})
+    (add-group-gravity :y_scale :nodes {:axis     :y
+                                        :field    :group
+                                        :data     :nodes_data
+                                        :strength {:init 0.5 :min 0.1 :max 2 :step 0.2}})
     (oz/view! :mode :vega)))
