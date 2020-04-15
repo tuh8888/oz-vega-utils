@@ -198,17 +198,7 @@
                              :bind  {:input "checkbox"}})
       (update :signals conj {:name  fix-sym
                              :value false
-                             :on    [{:events "symbol:mouseout[!event.buttons], window:mouseup"
-                                      :update "false"}
-                                     {:events "symbol:mouseover"
-                                      :update (format "%s || true" fix-sym)}
-                                     {:events "[symbol:mousedown, window:mouseup] > window:mousemove!"
-                                      :update "xy()"
-                                      :force  true}]})
-      (update :signals conj {:name  selected-node-sym
-                             :value nil
-                             :on    [{:events "symbol:mouseover"
-                                      :update (format "%s === true ? item() : node" fix-sym)}]})
+                             :on    []})
       (update :signals conj {:name  restart-sym
                              :value false
                              :on    [{:events {:signal fix-sym}
@@ -217,7 +207,23 @@
                                                                            :iterations (:iterations sim)
                                                                            :restart    {:signal restart-sym}
                                                                            :static     {:signal static-sym}
-                                                                           :signal     :force})
+                                                                           :signal     :force})))
+
+(defn add-node-dragging
+  [vega selected-node-sym fix-sym nodes-sym]
+  (-> vega
+      (update :signals conj {:name  selected-node-sym
+                             :value nil
+                             :on    [{:events "symbol:mouseover"
+                                      :update (format "%s === true ? item() : node" fix-sym)}]})
+
+      (update-in-with-kv-index [:signals [:name fix-sym] :on] conj {:events "symbol:mouseout[!event.buttons], window:mouseup"
+                                                                    :update "false"})
+      (update-in-with-kv-index [:signals [:name fix-sym] :on] conj {:events "symbol:mouseover"
+                                                                    :update (format "%s || true" fix-sym)})
+      (update-in-with-kv-index [:signals [:name fix-sym] :on] conj {:events "[symbol:mousedown, window:mouseup] > window:mousemove!"
+                                                                    :update "xy()"
+                                                                    :force  true})
       (update-in-with-kv-index [:marks [:name nodes-sym] :on] conj {:trigger fix-sym
                                                                     :modify  selected-node-sym
                                                                     :values  (format "%s === true ? {fx: node.x, fy: node.y} : {fx: %s[0], fy: %s[1]}"
@@ -267,6 +273,7 @@
         (update :data conj {:name link-data-sym :values links})
         (add-nodes :nodes node-data-sym nodes node-radius-sym node-color)
         (add-force-sim fix-sym restart-sym static-sym nodes-sym selected-node-sym sim)
+        (add-node-dragging selected-node-sym fix-sym nodes-sym)
         (update :marks conj {:type        :path
                              :from        {:data link-data-sym}
                              :interactive false
