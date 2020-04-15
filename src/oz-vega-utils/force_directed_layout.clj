@@ -154,7 +154,7 @@
         vega-template
         (assoc :marks [{:name   :nodes
                         :encode {:enter {:fill {}}}}])
-        (add-colors "color-sym" :nodes {:data "node-data" :field "group" :type :ordinal :scheme "xyc"})
+        (add-colors "color" :nodes {:data "node-data" :field "group" :type :ordinal :scheme "xyc"})
         #_(oz/view! :mode :vega))))
 
 (defn add-axis
@@ -191,7 +191,6 @@
         node-sym        "node"
         node-data-sym   "node-data"
         link-data-sym   "link-data"
-        color-sym       "color"
         center-y-sym    "centerY"
         x-scale-sym     "xscale"]
     (-> canvas
@@ -242,7 +241,7 @@
                                           :restart    {:signal restart-sym}
                                           :static     {:signal static-sym}
                                           :signal     :force}]})
-        (add-colors color-sym :nodes {:type :ordinal :data node-data-sym :field (:key node-color) :scheme (:scheme node-color)})
+        (add-colors "node-color" :nodes {:type :ordinal :data node-data-sym :field (:key node-color) :scheme (:scheme node-color)})
         (update :marks conj {:type        :path
                              :from        {:data link-data-sym}
                              :interactive false
