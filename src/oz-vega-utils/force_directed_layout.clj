@@ -259,22 +259,31 @@
                                                                   :values  (js "{fx: null, fy: null}")})
     (update-in-with-kv-index [:marks [:name nodes-sym] :encode :update] assoc :cursor {:value :pointer})))
 
+
+(defn prop-sym
+  [sym prop]
+  (-> sym
+    name
+    (str "_" (name prop))
+    keyword))
+
 (defn data-sym
   [sym]
-  (keyword (str (name sym) "_data")))
+  (prop-sym sym :data))
 
 (defn add-nodes
-  [vega sym node-radius-sym nodes]
-  (-> vega
-    (update :data conj {:name (data-sym sym) :values nodes})
-    (update :marks conj {:name      sym
-                         :type      :symbol
-                         :zindex    1
-                         :from      {:data (data-sym sym)}
-                         :on        []
-                         :encode    {:enter  {:name {:field "name"}} ; TODO move to add-node-labels
-                                     :update {:size {:signal (js "2 * %s * %s" node-radius-sym node-radius-sym)}}}
-                         :transform []})))
+  [vega sym nodes]
+  (let  [r (prop-sym sym :radius)]
+    (-> vega
+      (update :data conj {:name (data-sym sym) :values nodes})
+      (update :marks conj {:name      sym
+                           :type      :symbol
+                           :zindex    1
+                           :from      {:data (data-sym sym)}
+                           :on        []
+                           :encode    {:enter  {:name {:field "name"}} ; TODO move to add-node-labels
+                                       :update {:size {:signal (js "2 * %s * %s" r r)}}}
+                           :transform []}))))
 
 (defn add-links
   [vega sym links]
@@ -312,7 +321,7 @@
        :height      height
        :description "A node-link diagram with force-directed layout, depicting character co-occurrence in the novel Les Misérables."}
     vega-template
-    (add-nodes :nodes :node_radius (:nodes data))
+    (add-nodes :nodes (:nodes data))
     (add-links :links (:links data))
     (add-force-sim :fix :restart :nodes :links {:iterations 300
                                                 :static     {:init false
@@ -329,7 +338,7 @@
     (add-colors :node-label-color :node-labels {:type   :static
                                                 :stroke "black"})
     (add-force :collide
-      {:radius   {:name :node_radius
+      {:radius   {:name :nodes_radius
                   :init 10 :min 1 :max 50}
        :strength {:init 0.7 :min 0.1 :max 1 :step 0.1}})
     (add-force :nbody
