@@ -191,10 +191,10 @@
       (add-group-gravity "xscale" :nodes "group" "node-data" {:init 0.1 :min 0.1 :max 1 :step 0.1})))
 
 (defn add-force-sim
-  [vega fix-sym restart-sym static-sym nodes-sym selected-node-sym {:keys [iterations static?] :as sim}]
+  [vega fix-sym restart-sym static-sym nodes-sym {:keys [iterations static?]}]
   (-> vega
       (update :signals conj {:name  static-sym
-                             :value (:static? sim)
+                             :value static?
                              :bind  {:input "checkbox"}})
       (update :signals conj {:name  fix-sym
                              :value false
@@ -204,7 +204,7 @@
                              :on    [{:events {:signal fix-sym}
                                       :update (format "%s && %s.length" fix-sym fix-sym)}]})
       (update-in-with-kv-index [:marks [:name nodes-sym] :transform] conj {:type       :force
-                                                                           :iterations (:iterations sim)
+                                                                           :iterations iterations
                                                                            :restart    {:signal restart-sym}
                                                                            :static     {:signal static-sym}
                                                                            :signal     :force})))
@@ -272,7 +272,7 @@
         vega-template
         (update :data conj {:name link-data-sym :values links})
         (add-nodes :nodes node-data-sym nodes node-radius-sym node-color)
-        (add-force-sim fix-sym restart-sym static-sym nodes-sym selected-node-sym sim)
+        (add-force-sim fix-sym restart-sym static-sym nodes-sym sim)
         (add-node-dragging selected-node-sym fix-sym nodes-sym)
         (update :marks conj {:type        :path
                              :from        {:data link-data-sym}
