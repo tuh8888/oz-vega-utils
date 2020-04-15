@@ -174,12 +174,16 @@
       (add-axis {:orient :bottom :type :band :data node-data-sym :field "group" :range "width"})))
 
 (defn add-group-gravity
-  [vega sym mark field data strength]
-  (-> vega
-      (add-axis sym {:orient :bottom :data data :type :band :range "width" :field field})
-      (update-in-with-kv-index [:marks [:name mark] :encode :enter] assoc :xfocus {:scale sym :field field :band 0.5})
-      (add-force :x {:x        "xfocus"
-                     :strength strength})))
+  [vega sym mark {:keys [field data strength axis]}]
+  (let [[range orient] (if (= :x axis)
+                         ["width" :bottom]
+                         ["height" :left])
+        focus-sym      (str sym "Focus")]
+    (-> vega
+        (add-axis sym {:orient orient :data data :type :band :range "width" :field field})
+        (update-in-with-kv-index [:marks [:name mark] :encode :enter] assoc focus-sym {:scale sym :field field :band 0.5})
+        (add-force axis {axis      focus-sym
+                         :strength strength}))))
 
 (comment
   (-> canvas
@@ -307,11 +311,18 @@
       (add-force :center
                  {:x {:init (/ width 2)}
                   :y {:init (/ height 2)}})
-      (add-group-gravity "x-scale" :nodes "group" "node-data" {:init 0.1 :min 0.1 :max 1 :step 0.1})
+      #_(add-group-gravity "x-scale" :nodes {:axis     :x
+                                           :field    "group"
+                                           :data     "node-data"
+                                           :strength {:init 0.1 :min 0.1 :max 1 :step 0.1}})
+      (add-group-gravity "y-scale" :nodes {:axis     :y
+                                           :field    "group"
+                                           :data     "node-data"
+                                           :strength {:init 0.1 :min 0.1 :max 1 :step 0.1}})
       #_(add-force :x
                    {:x        "xfocus"
                     :strength {:init 0.1 :min 0.1 :max 1 :step 0.1}})
-      (add-force :y
-                 {:y        "yfocus"
-                  :strength 0.1})
+      #_(add-force :y
+                   {:y        "yfocus"
+                    :strength 0.1})
       (oz/view! :mode :vega)))
