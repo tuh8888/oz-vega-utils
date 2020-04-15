@@ -111,6 +111,30 @@
         vega-template
         #_(oz/view! :mode :vega))))
 
+(defn add-colors
+  [vega sym  {:keys [domain type scheme]}]
+  (-> vega
+      (update :scales conj {:name   sym
+                            :type   type
+                            :domain domain
+                            :range  {:scheme scheme}})))
+
+(defn add-axis
+  [vega sym {:keys [orient domain type range]}]
+  (-> vega
+      (update :scales conj {:name   sym
+                            :type   type
+                            :domain domain
+                            :range  range})
+      (update :axes conj {:orient orient
+                          :scale  sym})))
+
+(comment
+  (-> {}
+      vega-template
+      (add-axis {:type :ordinal :range scheme :domain {:data node-data-sym :field "group"}})
+      (add-axis {:orient :bottom :type :band :domain {:data node-data-sym :field "group" :range "width"}})))
+
 (defn force-directed-layout
   [{:keys [nodes links]}
    & {:keys [description canvas node-color link-color text-color labeled? sim]
@@ -149,31 +173,18 @@
                                              {:events "[symbol:mousedown, window:mouseup] > window:mousemove!"
                                               :update "xy()"
                                               :force  true}]})
-
         (update :signals conj {:description "Graph node most recently interacted with."
                                :name        node-sym
                                :value       nil
                                :on          [{:events "symbol:mouseover"
                                               :update (format "%s === true ? item() : node" fix-sym)}]})
-
         (update :signals conj {:description "Flag to restart Force simulation upon data changes."
                                :name        restart-sym
                                :value       false
                                :on          [{:events {:signal fix-sym}
                                               :update (format "%s && %s.length" fix-sym fix-sym)}]})
-
-        (update :scales conj (let [{:keys [key scheme]} node-color]
-                               {:name   color-sym
-                                :type   :ordinal
-                                :domain {:data node-data-sym :field key}
-                                :range  {:scheme scheme}}))
-        (update :scales conj (let [{:keys [key]} node-color]
-                               {:name   x-scale-sym
-                                :type   :band
-                                :domain {:data node-data-sym :field key}
-                                :range  "width"}))
-        (update :axes conj {:orient :bottom
-                            :scale  x-scale-sym})
+        (add-colors color-sym {:type :ordinal :domain {:data node-data-sym :field (:key node-color)} :scheme (:scheme node-color)})
+        (add-axis x-scale-sym {:type :band :domain {:data node-data-sym :field (:key node-color)} :range "width" :orient :bottom})
         (update :marks conj {:name      :nodes
                              :type      :symbol
                              :zindex    1
