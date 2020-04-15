@@ -190,9 +190,13 @@
                                                         :stroke {:value stroke}
                                                         :align  {:value "center"}})
                                              :update {:x {:field "x"}
-                                                      :y {:field "y"}}}}) )}))
+                                                      :y {:field "y"}}}}))}))
 
-(def data (oz/load"/home/harrison/Downloads/miserables.json"))
+(comment
+  ;; Initial Setup
+  (do
+    (oz/live-reload! "src/oz-vega-utils/force_directed_layout.clj")
+    (def data (oz/load"/home/harrison/Downloads/miserables.json"))))
 
 (let [width  1200
       height 500]
@@ -219,9 +223,9 @@
       (add-force :center
                  {:x {:init (/ width 2)}
                   :y {:init (/ height 2)}})
-      (add-force :x
-                 {:x        "xfocus"
-                  :strength {:init 0.1 :min 0.1 :max 1 :step 0.1}})
+      #_(add-force :x
+                   {:x        "xfocus"
+                    :strength {:init 0.1 :min 0.1 :max 1 :step 0.1}})
       (add-force :y
                  {:y        "yfocus"
                   :strength 0.1})
