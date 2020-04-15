@@ -133,7 +133,9 @@
     (update :marks conj {:name        sym
                          :type        :path
                          :from        {:data (ovu/prop-sym sym :data)}
-                         :interactive false})))
+                         :interactive false
+                         :encode      {:enter  {}
+                                       :update {}}})))
 
 (defn cache-label-prop-in-mark-data
   [vega mark label-prop]
