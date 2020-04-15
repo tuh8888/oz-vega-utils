@@ -106,11 +106,11 @@
   [vega sym nodes]
   (let  [r (ovu/prop-sym sym :radius)]
     (-> vega
-      (update :data conj {:name (ovu/data-sym sym) :values nodes})
+      (update :data conj {:name (ovu/prop-sym sym :data) :values nodes})
       (update :marks conj {:name      sym
                            :type      :symbol
                            :zindex    1
-                           :from      {:data (ovu/data-sym sym)}
+                           :from      {:data (ovu/prop-sym sym :data)}
                            :on        []
                            :encode    {:enter  {}
                                        :update {:size {:signal (ovu/js "2 * %s * %s" r r)}}}
@@ -119,10 +119,10 @@
 (defn add-links
   [vega sym links]
   (-> vega
-    (update :data conj {:name (ovu/data-sym sym) :values links})
+    (update :data conj {:name (ovu/prop-sym sym :data) :values links})
     (update :marks conj {:name        sym
                          :type        :path
-                         :from        {:data (ovu/data-sym sym)}
+                         :from        {:data (ovu/prop-sym sym :data)}
                          :interactive false
                          :encode      {}
                          :transform   []})))

@@ -79,10 +79,6 @@
       (update :axes conj {:orient orient
                           :scale  sym})))
 
-(defn data-sym
-  [sym]
-  (prop-sym sym :data))
-
 (defn range-selector
   [name {:keys [init min max step] :or {step 1}}]
   {:name  name
