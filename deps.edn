@@ -1,0 +1,14 @@
+{:deps    {org.clojure/clojure       {:mvn/version "1.10.1-beta2"}
+           github-tuh8888/kabob-mops {:git/url "git@github.com:tuh8888/kabob-mops.git"
+                                      :sha     "7f382f59b080cd178ae5a586ac8a491d13235a22"}
+           #_github-tuh8888/mops     #_ {:git/url "git@github.com:tuh8888/mops.git"
+                                         :sha     "cca52232de47c5b8c148402af28d32631134c432"}
+           ubergraph                 {:mvn/version "0.8.1"}
+           medley                    {:mvn/version "1.1.0"}
+           #_github-tuh8888/hpl-util #_ {:git/url "git@github.com:tuh8888/hpl-util.git"
+                                         :sha     "e2ef9fd1826307f108092a4662a14f4a3aa9fa4e"}
+           metasoarous/oz            {:mvn/version "1.6.0-alpha6"}
+           incanter/incanter-core    {:mvn/version "1.9.3"}
+           incanter/incanter-charts  {:mvn/version "1.9.3"}}
+ :paths   ["src" "resources"]
+ :aliases {:test {:extra-paths ["test"]}}}
