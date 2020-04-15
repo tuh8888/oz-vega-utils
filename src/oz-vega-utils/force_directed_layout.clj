@@ -26,8 +26,10 @@
     ((juxt :signals #(-> % :marks first :transform first :forces first)))))
 
 (defn add-group-gravity
-  [vega sym mark {:keys [field data strength axis]}]
-  (let [[range orient] (if (= :x axis)
+  "Add gravity according to the field for the mark."
+  [vega mark {:keys [field data strength axis]}]
+  (let [sym            (ovu/prop-sym mark field axis :gravity)
+        [range orient] (if (= :x axis)
                          ["width" :bottom]
                          ["height" :left])
         focus-sym      (str sym "Focus")]
@@ -180,12 +182,12 @@
     (add-force :nodes :center
       {:x {:init (/ width 2)}
        :y {:init (/ height 2)}})
-    (add-group-gravity :x_scale :nodes {:axis     :x
-                                        :field    :group
-                                        :data     :nodes_data
-                                        :strength {:init 0.1 :min 0.1 :max 1 :step 0.1}})
-    (add-group-gravity :y_scale :nodes {:axis     :y
-                                        :field    :group
-                                        :data     :nodes_data
-                                        :strength {:init 0.5 :min 0.1 :max 2 :step 0.2}})
+    (add-group-gravity :nodes {:axis     :x
+                               :field    :group
+                               :data     :nodes_data
+                               :strength {:init 0.1 :min 0.1 :max 1 :step 0.1}})
+    (add-group-gravity :nodes {:axis     :y
+                               :field    :group
+                               :data     :nodes_data
+                               :strength {:init 0.5 :min 0.1 :max 2 :step 0.2}})
     (oz/view! :mode :vega)))

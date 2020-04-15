@@ -35,10 +35,12 @@
       #_(oz/view! :mode :vega))))
 
 (defn prop-sym
-  [sym prop]
-  (-> sym
-    name
-    (str "_" (name prop))
+  [sym prop & props]
+  (->> props
+    (into [sym prop])
+    (map name)
+    (interpose "_")
+    (apply str)
     keyword))
 
 (defn add-colors
