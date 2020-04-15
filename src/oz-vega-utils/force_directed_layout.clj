@@ -3,10 +3,6 @@
             [oz-vega-utils.core :as ovu]
             [oz-vega-utils.util :as util]))
 
-(defn force-property-sym
-  [force-name property-name]
-  (str (name force-name) "_" (name property-name)))
-
 (defn add-force
   [m force props]
   (let [prop-sel-map (ovu/props->prop-sel-map force props)
@@ -25,51 +21,6 @@
       (add-force :collide {:radius {:init 1 :min 5 :max 6}})
       ((juxt :signals #(-> % :marks first :transform first :forces first)))))
 
-
-(comment
-  (let [canvas {:height  500
-                :width   1200
-                :padding 10}]
-    (-> canvas
-      ovu/vega-template
-      #_(oz/view! :mode :vega))))
-
-(defn add-colors
-  [vega mark {:keys [data field type scheme stroke strokeWidth] :or {scheme "category20c"}}]
-  (let [sym (ovu/prop-sym mark :colors)]
-    (if (= :static type)
-      (-> vega
-        (util/assoc-in-with-kv-index [:marks [:name mark] :encode :update :stroke :value] stroke)
-        (util/assoc-in-with-kv-index [:marks [:name mark] :encode :update :strokeWidth :value] strokeWidth))
-      (-> vega
-        (update :scales conj {:name   sym
-                              :type   type
-                              :domain {:data data :field field}
-                              :range  {:scheme scheme}})
-        (util/update-in-with-kv-index [:marks [:name mark] :encode :update :fill] assoc :scale sym :field field)
-        (util/assoc-in-with-kv-index [:marks [:name mark] :encode :update :stroke :value] stroke)))))
-
-(comment
-  (let [canvas {:height  500
-                :width   1200
-                :padding 10}]
-    (-> canvas
-      ovu/vega-template
-      (assoc :marks [{:name   :nodes
-                      :encode {:enter {:fill {}}}}])
-      (add-colors :nodes {:data :node-data :field "group" :type :ordinal :scheme "xyc"})
-      #_(oz/view! :mode :vega))))
-
-(defn add-axis
-  [vega sym {:keys [orient data field type range]}]
-  (-> vega
-      (update :scales conj {:name   sym
-                            :type   type
-                            :domain {:data data :field field}
-                            :range  range})
-      (update :axes conj {:orient orient
-                          :scale  sym})))
-
 (defn add-group-gravity
   [vega sym mark {:keys [field data strength axis]}]
   (let [[range orient] (if (= :x axis)
@@ -77,7 +28,7 @@
                          ["height" :left])
         focus-sym      (str sym "Focus")]
     (-> vega
-      (add-axis sym {:orient orient :data data :type :band :range range :field field})
+      (ovu/add-axis sym {:orient orient :data data :type :band :range range :field field})
       (util/assoc-in-with-kv-index [:marks [:name mark] :encode :enter focus-sym] {:scale sym :field field :band 0.5})
       (add-force axis {axis      focus-sym
                        :strength strength}))))
@@ -200,15 +151,15 @@
                                                              :sym  :static}})
     (add-node-dragging :fix :nodes)
     (add-node-labels :nodes :name)
-    (add-colors :nodes {:type   :ordinal
-                        :data   :nodes_data
-                        :field  :group
-                        :stroke "white"})
-    (add-colors :links {:type        :static
-                        :strokeWidth 0.5
-                        :stroke      "#ccc"})
-    (add-colors :nodes_labels {:type   :static
-                               :stroke "black"})
+    (ovu/add-colors :nodes {:type   :ordinal
+                            :data   :nodes_data
+                            :field  :group
+                            :stroke "white"})
+    (ovu/add-colors :links {:type        :static
+                            :strokeWidth 0.5
+                            :stroke      "#ccc"})
+    (ovu/add-colors :nodes_labels {:type   :static
+                                   :stroke "black"})
     (add-force :collide
       {:radius   {:name :nodes_radius
                   :init 10 :min 1 :max 50}

@@ -26,12 +26,56 @@
    :axes        []
    :marks       []})
 
+(comment
+  (let [canvas {:height  500
+                :width   1200
+                :padding 10}]
+    (-> canvas
+      vega-template
+      #_(oz/view! :mode :vega))))
+
 (defn prop-sym
   [sym prop]
   (-> sym
     name
     (str "_" (name prop))
     keyword))
+
+(defn add-colors
+  [vega mark {:keys [data field type scheme stroke strokeWidth] :or {scheme "category20c"}}]
+  (let [sym (prop-sym mark :colors)]
+    (if (= :static type)
+      (-> vega
+        (util/assoc-in-with-kv-index [:marks [:name mark] :encode :update :stroke :value] stroke)
+        (util/assoc-in-with-kv-index [:marks [:name mark] :encode :update :strokeWidth :value] strokeWidth))
+      (-> vega
+        (update :scales conj {:name   sym
+                              :type   type
+                              :domain {:data data :field field}
+                              :range  {:scheme scheme}})
+        (util/update-in-with-kv-index [:marks [:name mark] :encode :update :fill] assoc :scale sym :field field)
+        (util/assoc-in-with-kv-index [:marks [:name mark] :encode :update :stroke :value] stroke)))))
+
+(comment
+  (let [canvas {:height  500
+                :width   1200
+                :padding 10}]
+    (-> canvas
+      vega-template
+      (assoc :marks [{:name   :nodes
+                      :encode {:enter {:fill {}}}}])
+      (add-colors :nodes {:data :node-data :field "group" :type :ordinal :scheme "xyc"})
+      #_(oz/view! :mode :vega))))
+
+(defn add-axis
+  [vega sym {:keys [orient data field type range]}]
+  (-> vega
+      (update :scales conj {:name   sym
+                            :type   type
+                            :domain {:data data :field field}
+                            :range  range})
+      (update :axes conj {:orient orient
+                          :scale  sym})))
 
 (defn data-sym
   [sym]
