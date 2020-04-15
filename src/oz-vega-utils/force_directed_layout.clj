@@ -250,30 +250,33 @@
                                                                          :targetY "datum.target.y"})))
 
 (defn add-node-dragging
-  [vega selected-node-sym fix-sym nodes-sym]
-  (-> vega
-    (update :signals conj {:name  selected-node-sym
-                           :value nil
-                           :on    [{:events (js "symbol:mouseover")
-                                    :update (js "%s === true ? item() : node" fix-sym)}]})
+  [vega fix-sym nodes-sym]
+  (let [selected-node-sym (prop-sym nodes-sym :selected)]
+    (-> vega
+      (update :signals conj {:name  selected-node-sym
+                             :value nil
+                             :on    [{:events (js "symbol:mouseover")
+                                      :update (js "%s === true ? item() : %s" fix-sym selected-node-sym)}]})
 
-    (update-in-with-kv-index [:signals [:name fix-sym] :on] conj {:events (js "symbol:mouseout[!event.buttons], window:mouseup")
-                                                                  :update "false"})
-    (update-in-with-kv-index [:signals [:name fix-sym] :on] conj {:events (js "symbol:mouseover")
-                                                                  :update (js "%s || true" fix-sym)})
-    (update-in-with-kv-index [:signals [:name fix-sym] :on] conj {:events (js "[symbol:mousedown, window:mouseup] > window:mousemove!")
-                                                                  :update (js "xy()")
-                                                                  :force  true})
-    (update-in-with-kv-index [:marks [:name nodes-sym] :on] conj {:trigger fix-sym
-                                                                  :modify  selected-node-sym
-                                                                  :values  (js "%s === true ? {fx: node.x, fy: node.y} : {fx: %s[0], fy: %s[1]}"
-                                                                             fix-sym
-                                                                             fix-sym
-                                                                             fix-sym)})
-    (update-in-with-kv-index [:marks [:name nodes-sym] :on] conj {:trigger (js "!%s" fix-sym)
-                                                                  :modify  selected-node-sym
-                                                                  :values  (js "{fx: null, fy: null}")})
-    (update-in-with-kv-index [:marks [:name nodes-sym] :encode :update] assoc :cursor {:value :pointer})))
+      (update-in-with-kv-index [:signals [:name fix-sym] :on] conj {:events (js "symbol:mouseout[!event.buttons], window:mouseup")
+                                                                    :update "false"})
+      (update-in-with-kv-index [:signals [:name fix-sym] :on] conj {:events (js "symbol:mouseover")
+                                                                    :update (js "%s || true" fix-sym)})
+      (update-in-with-kv-index [:signals [:name fix-sym] :on] conj {:events (js "[symbol:mousedown, window:mouseup] > window:mousemove!")
+                                                                    :update (js "xy()")
+                                                                    :force  true})
+      (update-in-with-kv-index [:marks [:name nodes-sym] :on] conj {:trigger fix-sym
+                                                                    :modify  selected-node-sym
+                                                                    :values  (js "%s === true ? {fx: %s.x, fy: %s.y} : {fx: %s[0], fy: %s[1]}"
+                                                                               fix-sym
+                                                                               selected-node-sym
+                                                                               selected-node-sym
+                                                                               fix-sym
+                                                                               fix-sym)})
+      (update-in-with-kv-index [:marks [:name nodes-sym] :on] conj {:trigger (js "!%s" fix-sym)
+                                                                    :modify  selected-node-sym
+                                                                    :values  (js "{fx: null, fy: null}")})
+      (update-in-with-kv-index [:marks [:name nodes-sym] :encode :update] assoc :cursor {:value :pointer}))))
 
 (defn add-nodes
   [vega sym nodes]
@@ -332,7 +335,7 @@
     (add-force-sim :fix :restart :nodes :links {:iterations 300
                                                 :static     {:init false
                                                              :sym  :static}})
-    (add-node-dragging :node :fix :nodes)
+    (add-node-dragging :fix :nodes)
     (add-node-labels :nodes :name)
     (add-colors :nodes {:type   :ordinal
                         :data   :nodes_data
