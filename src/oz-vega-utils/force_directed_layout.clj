@@ -190,22 +190,6 @@
       vega-template
       (add-group-gravity "xscale" :nodes "group" "node-data" {:init 0.1 :min 0.1 :max 1 :step 0.1})))
 
-(defn add-nodes
-  [vega nodes-sym data-sym nodes node-radius-sym node-color]
-  (-> vega
-      (update :data conj {:name data-sym :values nodes})
-      (update :marks conj
-              {:name      nodes-sym
-               :type      :symbol
-               :zindex    1
-               :from      {:data data-sym}
-               :on        []
-               :encode    {:enter  (let [{:keys [stroke]} node-color]
-                                     {:stroke {:value stroke}
-                                      :name   {:field "name"}})
-                           :update {:size {:signal (str "2 * " node-radius-sym " * " node-radius-sym)}}}
-               :transform []})))
-
 (defn add-force-sim
   [vega fix-sym restart-sym static-sym nodes-sym selected-node-sym {:keys [iterations static?] :as sim}]
   (-> vega
@@ -244,9 +228,24 @@
                                                                     :values  "{fx: null, fy: null}"})
       (update-in-with-kv-index [:marks [:name nodes-sym] :encode :update] assoc :cursor {:value :pointer})))
 
+(defn add-nodes
+  [vega nodes-sym data-sym nodes node-radius-sym node-color]
+  (-> vega
+      (update :data conj {:name data-sym :values nodes})
+      (update :marks conj {:name      nodes-sym
+                           :type      :symbol
+                           :zindex    1
+                           :from      {:data data-sym}
+                           :on        []
+                           :encode    {:enter  (let [{:keys [stroke]} node-color]
+                                                 {:stroke {:value stroke}
+                                                  :name   {:field "name"}})
+                                       :update {:size {:signal (str "2 * " node-radius-sym " * " node-radius-sym)}}}
+                           :transform []})))
+
 (defn force-directed-layout
   [{:keys [nodes links]}
-   & {:keys [description canvas node-color link-color text-color labeled? sim]
+   & {:keys [canvas node-color link-color text-color labeled? sim]
       :or   {canvas     {:height  500
                          :width   700
                          :padding 0}
@@ -264,20 +263,8 @@
         link-data-sym   "link-data"]
     (-> canvas
         vega-template
-        (update :data conj {:name node-data-sym :values nodes})
         (update :data conj {:name link-data-sym :values links})
-        (update :marks conj {:name      :nodes
-                             :type      :symbol
-                             :zindex    1
-                             :from      {:data node-data-sym}
-                             :on        []
-                             :encode    {:enter  (let [{:keys [stroke]} node-color]
-                                                   {:stroke {:value stroke}
-                                                    :name   {:field "name"}})
-                                         :update {:size       {:signal (str "2 * " node-radius-sym " * " node-radius-sym)}}}
-                             :transform []})
-
-        #_(add-nodes :nodes node-data-sym nodes node-radius-sym node-color)
+        (add-nodes :nodes node-data-sym nodes node-radius-sym node-color)
         (add-force-sim fix-sym restart-sym static-sym :nodes node-sym sim)
         (update :marks conj {:type        :path
                              :from        {:data link-data-sym}
