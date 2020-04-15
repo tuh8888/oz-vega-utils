@@ -191,11 +191,11 @@
       (add-group-gravity "xscale" :nodes "group" "node-data" {:init 0.1 :min 0.1 :max 1 :step 0.1})))
 
 (defn add-force-sim
-  [vega fix-sym restart-sym static-sym nodes-sym {:keys [iterations static?]}]
+  [vega fix-sym restart-sym nodes-sym {:keys [iterations static]}]
   (-> vega
-      (update :signals conj {:name  static-sym
-                             :value static?
-                             :bind  {:input "checkbox"}})
+      (cond-> (:sym static) (update :signals conj {:name  (:sym static)
+                                                   :value (:init static)
+                                                   :bind  {:input "checkbox"}}))
       (update :signals conj {:name  fix-sym
                              :value false
                              :on    []})
@@ -206,7 +206,8 @@
       (update-in-with-kv-index [:marks [:name nodes-sym] :transform] conj {:type       :force
                                                                            :iterations iterations
                                                                            :restart    {:signal restart-sym}
-                                                                           :static     {:signal static-sym}
+                                                                           :static     (cond-> static
+                                                                                         (:sym static) (->> :sym (hash-map :signal)))
                                                                            :signal     :force})))
 
 (defn add-node-dragging
@@ -258,12 +259,12 @@
              link-color {:width 0.5 :stroke "#ccc"}
              node-color {:key "group" :scheme "category20c" :stroke "white"}
              text-color {:stroke "black"}
-             sim        {:static?    true
+             sim        {:static     {:init true
+                                      :sym "static"}
                          :iterations 300}}}]
   (let [node-radius-sym   "nodeRadius"
         fix-sym           "fix"
         restart-sym       "restart"
-        static-sym        "static"
         selected-node-sym "node"
         nodes-sym         :nodes
         node-data-sym     "node-data"
@@ -272,7 +273,7 @@
         vega-template
         (update :data conj {:name link-data-sym :values links})
         (add-nodes :nodes node-data-sym nodes node-radius-sym node-color)
-        (add-force-sim fix-sym restart-sym static-sym nodes-sym sim)
+        (add-force-sim fix-sym restart-sym nodes-sym sim)
         (add-node-dragging selected-node-sym fix-sym nodes-sym)
         (update :marks conj {:type        :path
                              :from        {:data link-data-sym}
@@ -311,11 +312,13 @@
         :labeled? true
         :canvas {:width  width
                  :height height}
-        :sim {:static? false})
+        :sim {:static
+              {:init false
+               :sym "static"}})
 
-      (add-colors "node-color" :nodes {:type   :ordinal
-                                       :data   "node-data"
-                                       :field  "group"})
+      (add-colors "node-color" :nodes {:type  :ordinal
+                                       :data  "node-data"
+                                       :field "group"})
       (add-force :collide
                  {:radius   {:name "nodeRadius"
                              :init 10 :min 1 :max 50}
