@@ -138,14 +138,18 @@
         #_(oz/view! :mode :vega))))
 
 (defn add-colors
-  [vega sym mark {:keys [data field type scheme stroke] :or {scheme "category20c"}}]
-  (-> vega
-      (update :scales conj {:name   sym
-                            :type   type
-                            :domain {:data data :field field}
-                            :range  {:scheme scheme}})
-      (update-in-with-kv-index [:marks [:name mark] :encode :enter :fill] assoc :scale sym :field field)
-      (update-in-with-kv-index [:marks [:name mark] :encode :enter :stroke] assoc :value stroke)))
+  [vega sym mark {:keys [data field type scheme stroke strokeWidth] :or {scheme "category20c"}}]
+  (if (= :static type)
+    (-> vega
+        (update-in-with-kv-index [:marks [:name mark] :encode :update :stroke] assoc :value stroke)
+        (update-in-with-kv-index [:marks [:name mark] :encode :update :strokeWidth] assoc :value strokeWidth))
+    (-> vega
+        (update :scales conj {:name   sym
+                              :type   type
+                              :domain {:data data :field field}
+                              :range  {:scheme scheme}})
+        (update-in-with-kv-index [:marks [:name mark] :encode :update :fill] assoc :scale sym :field field)
+        (update-in-with-kv-index [:marks [:name mark] :encode :update :stroke] assoc :value stroke))))
 
 (comment
   (let [canvas {:height  500
@@ -257,25 +261,22 @@
                            :transform []})))
 
 (defn add-links
-  [vega links-sym links data-sym link-color]
+  [vega links-sym links data-sym]
   (-> vega
       (update :data conj {:name data-sym :values links})
       (update :marks conj {:name        links-sym
                            :type        :path
                            :from        {:data data-sym}
                            :interactive false
-                           :encode      {:update (let [{:keys [stroke width]} link-color]
-                                                   {:stroke      {:value stroke}
-                                                    :strokeWidth {:value width}})}
+                           :encode      {}
                            :transform   []})))
 
 (defn force-directed-layout
   [{:keys [nodes links]}
-   & {:keys [canvas link-color text-color labeled? sim]
+   & {:keys [canvas text-color labeled? sim]
       :or   {canvas     {:height  500
                          :width   700
                          :padding 0}
-             link-color {:width 0.5 :stroke "#ccc"}
              text-color {:stroke "black"}
              sim        {:static     {:init true
                                       :sym  "static"}
@@ -291,7 +292,7 @@
     (-> canvas
         vega-template
         (add-nodes nodes-sym node-data-sym nodes node-radius-sym)
-        (add-links links-sym links link-data-sym link-color )
+        (add-links links-sym links link-data-sym)
         (add-force-sim fix-sym restart-sym nodes-sym links-sym sim)
         (add-node-dragging selected-node-sym fix-sym nodes-sym)
         (cond-> labeled? (update :marks conj {:type   :text
@@ -322,10 +323,13 @@
               {:init false
                :sym  "static"}})
 
-      (add-colors "node-color" :nodes {:type  :ordinal
-                                       :data  "node-data"
-                                       :field "group"
+      (add-colors "node-color" :nodes {:type   :ordinal
+                                       :data   "node-data"
+                                       :field  "group"
                                        :stroke "white"})
+      (add-colors "link-color" :links {:type        :static
+                                       :strokeWidth 0.5
+                                       :stroke      "#ccc"})
       (add-force :collide
                  {:radius   {:name "nodeRadius"
                              :init 10 :min 1 :max 50}
