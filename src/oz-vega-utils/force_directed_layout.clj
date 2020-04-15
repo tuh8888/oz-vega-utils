@@ -228,7 +228,21 @@
       (update :signals conj {:name  restart-sym
                              :value false
                              :on    [{:events {:signal fix-sym}
-                                      :update (format "%s && %s.length" fix-sym fix-sym)}]})))
+                                      :update (format "%s && %s.length" fix-sym fix-sym)}]})
+      (update-in-with-kv-index [:marks [:name nodes-sym] :transform] conj {:type       :force
+                                                                           :iterations (:iterations sim)
+                                                                           :restart    {:signal restart-sym}
+                                                                           :static     {:signal static-sym}
+                                                                           :signal     :force})
+      (update-in-with-kv-index [:marks [:name nodes-sym] :on] conj {:trigger fix-sym
+                                                                    :modify  selected-node-sym
+                                                                    :values  (format "%s === true ? {fx: node.x, fy: node.y} : {fx: %s[0], fy: %s[1]}"
+                                                                                     fix-sym fix-sym
+                                                                                     fix-sym)})
+      (update-in-with-kv-index [:marks [:name nodes-sym] :on] conj {:trigger (format "!%s" fix-sym)
+                                                                    :modify  selected-node-sym
+                                                                    :values  "{fx: null, fy: null}"})
+      (update-in-with-kv-index [:marks [:name nodes-sym] :encode :update] assoc :cursor {:value :pointer})))
 
 (defn force-directed-layout
   [{:keys [nodes links]}
@@ -256,22 +270,12 @@
                              :type      :symbol
                              :zindex    1
                              :from      {:data node-data-sym}
-                             :on        [{:trigger fix-sym
-                                          :modify  node-sym
-                                          :values  (format "%s === true ? {fx: node.x, fy: node.y} : {fx: %s[0], fy: %s[1]}" fix-sym fix-sym fix-sym)}
-                                         {:trigger (format "!%s" fix-sym)
-                                          :modify  node-sym
-                                          :values  "{fx: null, fy: null}"}]
+                             :on        []
                              :encode    {:enter  (let [{:keys [stroke]} node-color]
                                                    {:stroke {:value stroke}
                                                     :name   {:field "name"}})
-                                         :update {:size   {:signal (str "2 * " node-radius-sym " * " node-radius-sym)}
-                                                  :cursor {:value :pointer}}}
-                             :transform [{:type       :force
-                                          :iterations (:iterations sim)
-                                          :restart    {:signal restart-sym}
-                                          :static     {:signal static-sym}
-                                          :signal     :force}]})
+                                         :update {:size       {:signal (str "2 * " node-radius-sym " * " node-radius-sym)}}}
+                             :transform []})
 
         #_(add-nodes :nodes node-data-sym nodes node-radius-sym node-color)
         (add-force-sim fix-sym restart-sym static-sym :nodes node-sym sim)
