@@ -75,6 +75,7 @@
                                                                                  :targetY "datum.target.y"}))))
 
 (defn add-node-dragging
+  "Allow node dragging for nodes-mark."
   [vega nodes-mark links-mark]
   (let [fix-sym           (ovu/prop-sym nodes-mark links-mark :fix)
         selected-node-sym (ovu/prop-sym nodes-mark links-mark :selected)]
@@ -105,8 +106,10 @@
       (util/assoc-in-with-kv-index [:marks [:name nodes-mark] :encode :update :cursor :value] :pointer))))
 
 (defn add-nodes
-  [vega sym nodes]
-  (let  [r (ovu/prop-sym sym :radius)]
+  "Add provided nodes to visualization.
+  If an init value for radius is provided, the radius can be changed. Otherwise it will be static."
+  [vega sym nodes & {:keys [radius]}]
+  (let  [r-sym (ovu/prop-sym sym :radius)]
     (-> vega
       (update :data conj {:name (ovu/prop-sym sym :data) :values nodes})
       (update :marks conj {:name      sym
@@ -114,8 +117,10 @@
                            :zindex    1
                            :from      {:data (ovu/prop-sym sym :data)}
                            :on        []
-                           :encode    {:enter  {}
-                                       :update {:size {:signal (ovu/js "2 * %s * %s" r r)}}}
+                           :encode    {:enter  {:size radius}
+                                       :update {:size (if (:init radius)
+                                                        {:signal (ovu/js "2 * %s * %s" r-sym r-sym)}
+                                                        radius)}}
                            :transform []}))))
 
 (defn add-links
@@ -156,7 +161,7 @@
        :height      height
        :description "A node-link diagram with force-directed layout, depicting character co-occurrence in the novel Les Misérables."}
     ovu/vega-template
-    (add-nodes :nodes (:nodes data))
+    (add-nodes :nodes (:nodes data) :radius {:init 8})
     (add-links :links (:links data))
     (add-force-sim :nodes :links {:iterations 300
                                   :static     {:init false}})
@@ -172,7 +177,7 @@
     (ovu/add-colors :nodes_labels {:type   :static
                                    :stroke "black"})
     (add-force :nodes :collide
-      {:radius   {:name :nodes_radius
+      {:radius   {:name (ovu/prop-sym :nodes :radius)
                   :init 10 :min 1 :max 50}
        :strength {:init 0.7 :min 0.1 :max 1 :step 0.1}})
     (add-force :nodes :nbody
