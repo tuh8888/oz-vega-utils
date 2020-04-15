@@ -40,38 +40,42 @@
                             :strength strength}))))
 
 (defn add-force-sim
-  [vega fix-sym restart-sym nodes-sym links-sym {:keys [iterations static]
-                                                 :or   {iterations 300
-                                                        static     {:init true
-                                                                    :sym  "static"}}}]
-  (-> vega
-    (cond-> (:sym static) (update :signals conj {:name  (:sym static)
-                                                 :value (:init static)
-                                                 :bind  {:input "checkbox"}}))
-    (update :signals conj {:name  fix-sym
-                           :value false
-                           :on    []})
-    (update :signals conj {:name  restart-sym
-                           :value false
-                           :on    [{:events {:signal fix-sym}
-                                    :update (ovu/js "%s && %s.length" fix-sym fix-sym)}]})
-    (util/update-in-with-kv-index [:marks [:name nodes-sym] :transform] conj {:type       :force
-                                                                              :iterations iterations
-                                                                              :restart    {:signal restart-sym}
-                                                                              :static     (cond-> static
-                                                                                            (:sym static) (->> :sym (hash-map :signal)))
-                                                                              :signal     :force})
-    (util/update-in-with-kv-index [:marks [:name links-sym] :transform] conj {:type    :linkpath
-                                                                              :require {:signal :force}
-                                                                              :shape   :line
-                                                                              :sourceX "datum.source.x"
-                                                                              :sourceY "datum.source.y"
-                                                                              :targetX "datum.target.x"
-                                                                              :targetY "datum.target.y"})))
+  "Add a force simulation for the "
+  [vega nodes-mark links-mark {:keys [iterations static]
+                               :or   {iterations 300
+                                      static     {:init true}}}]
+  (let [fix-sym     (ovu/prop-sym nodes-mark links-mark :fix)
+        restart-sym (ovu/prop-sym nodes-mark links-mark :restart)
+        static-sym  (ovu/prop-sym nodes-mark links-mark :static)]
+    (-> vega
+      (cond-> (boolean? (:init static)) (update :signals conj {:name  static-sym
+                                                               :value (:init static)
+                                                               :bind  {:input "checkbox"}}))
+      (update :signals conj {:name  fix-sym
+                             :value false
+                             :on    []})
+      (update :signals conj {:name  restart-sym
+                             :value false
+                             :on    [{:events {:signal fix-sym}
+                                      :update (ovu/js "%s && %s.length" fix-sym fix-sym)}]})
+      (util/update-in-with-kv-index [:marks [:name nodes-mark] :transform] conj {:type       :force
+                                                                                 :iterations iterations
+                                                                                 :restart    {:signal restart-sym}
+                                                                                 :static     (cond-> static
+                                                                                               (boolean? (:init static)) {:signal static-sym})
+                                                                                 :signal     :force})
+      (util/update-in-with-kv-index [:marks [:name links-mark] :transform] conj {:type    :linkpath
+                                                                                 :require {:signal :force}
+                                                                                 :shape   :line
+                                                                                 :sourceX "datum.source.x"
+                                                                                 :sourceY "datum.source.y"
+                                                                                 :targetX "datum.target.x"
+                                                                                 :targetY "datum.target.y"}))))
 
 (defn add-node-dragging
-  [vega fix-sym nodes-sym]
-  (let [selected-node-sym (ovu/prop-sym nodes-sym :selected)]
+  [vega nodes-sym links-sym]
+  (let [fix-sym           (ovu/prop-sym nodes-sym links-sym :fix)
+        selected-node-sym (ovu/prop-sym nodes-sym :selected)]
     (-> vega
       (update :signals conj {:name  selected-node-sym
                              :value nil
@@ -152,10 +156,9 @@
     ovu/vega-template
     (add-nodes :nodes (:nodes data))
     (add-links :links (:links data))
-    (add-force-sim :fix :restart :nodes :links {:iterations 300
-                                                :static     {:init false
-                                                             :sym  :static}})
-    (add-node-dragging :fix :nodes)
+    (add-force-sim :nodes :links {:iterations 300
+                                  :static     {:init false}})
+    (add-node-dragging :nodes :links)
     (add-node-labels :nodes :name)
     (ovu/add-colors :nodes {:type   :ordinal
                             :data   :nodes_data
