@@ -20,15 +20,42 @@
                    [f args])]
     (apply update coll k f args)))
 
-(defn update-in-with-kv-index
-  [coll ksf f & args]
-  (let [ksf (map (fn [p] (if (coll? p)
-                          #(index-of-elem-with-kv % (first p) (second p))
-                          p))
-                 ksf)]
-    (apply update-in-with-fn coll ksf f args)))
+(defn get-in-with-fn
+  [coll [fn-or-k & fns-and-ks]]
+  (let [k (if (fn? fn-or-k)
+            (fn-or-k coll)
+            fn-or-k)]
+    (-> coll
+        (get k)
+        (cond-> (seq fns-and-ks) (get-in-with-fn fns-and-ks)))))
+
+(defn map-if
+  [f pred coll]
+  (map #(cond-> % (pred %) f) coll))
 
 (comment
+  (map-if inc even? [100 10 3 1001 5]))
+
+(defn ks->kv-index
+  [ks]
+  (map-if (fn [[k v]] #(index-of-elem-with-kv % k v)) coll? ks))
+
+(defn get-in-with-kv-index
+  [coll ks-and-kvs]
+  (->> ks-and-kvs
+       ks->kv-index
+       (get-in-with-fn coll)))
+
+(defn update-in-with-kv-index
+  [coll ks-and-kvs f & args]
+  (let [ks-and-kvs (ks->kv-index ks-and-kvs)]
+    (apply update-in-with-fn coll ks-and-kvs f args)))
+
+(comment
+  (get-in-with-kv-index {:marks [{:name      :nodes
+                                  :transform [{:type   :force
+                                               :forces 5}]}]}
+                        [:marks  [:name :nodes] :transform [:type :force] :forces])
   (update-in-with-kv-index {:marks [{:name      :nodes
                                      :transform [{:type   :force
                                                   :forces 5}]}]}
