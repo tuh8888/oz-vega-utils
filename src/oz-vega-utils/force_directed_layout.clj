@@ -30,7 +30,10 @@
         [f args] (if (seq fns-and-ks)
                    [update-in-with-fn (into [fns-and-ks f] args)]
                    [f args])]
-    (apply update coll k f args)))
+    (if (nil? k)
+      (throw (ex-info "Supplied fn did not find a key" {:kv   (:kv (meta fn-or-k))
+                                                        :coll coll}))
+      (apply update coll k f args))))
 
 (defn get-in-with-fn
   [coll [fn-or-k & fns-and-ks]]
@@ -46,7 +49,7 @@
 
 (defn ks->kv-index
   [ks]
-  (map-if (fn [[k v]] #(index-of-elem-with-kv % k v)) coll? ks))
+  (map-if (fn [[k v :as kv]] (vary-meta #(index-of-elem-with-kv % k v) merge {:kv kv})) coll? ks))
 
 (defn get-in-with-kv-index
   [coll ks-and-kvs]
@@ -60,15 +63,16 @@
     (apply update-in-with-fn coll ks-and-kvs f args)))
 
 (comment
+  (meta (second (ks->kv-index [:m [:l :n] 0])))
   (get-in-with-kv-index {:marks [{:name      :nodes
                                   :transform [{:type   :force
                                                :forces 5}]}]}
-                        [:marks  [:name :nodes] :transform [:type :force] :forces])
+    [:marks  [:name :nodes] :transform [:type :force] :forces])
   (update-in-with-kv-index {:marks [{:name      :nodes
                                      :transform [{:type   :force
                                                   :forces 5}]}]}
-                           [:marks  [:name :nodes] :transform [:type :force] :forces]
-                           inc))
+    [:marks  [:name :nodes] :transform [:type :force] :forces]
+    assoc :x :y))
 
 (defn force-property-sym
   [force-name property-name]
