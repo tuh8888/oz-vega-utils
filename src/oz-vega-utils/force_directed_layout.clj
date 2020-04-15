@@ -14,6 +14,17 @@
       (apply format s))
     s))
 
+(defn prop-sym
+  [sym prop]
+  (-> sym
+    name
+    (str "_" (name prop))
+    keyword))
+
+(defn data-sym
+  [sym]
+  (prop-sym sym :data))
+
 (defn index-of-elem-with-kv
   [coll k v]
   (->> coll
@@ -150,18 +161,19 @@
         #_(oz/view! :mode :vega))))
 
 (defn add-colors
-  [vega sym mark {:keys [data field type scheme stroke strokeWidth] :or {scheme "category20c"}}]
-  (if (= :static type)
-    (-> vega
+  [vega mark {:keys [data field type scheme stroke strokeWidth] :or {scheme "category20c"}}]
+  (let [sym (prop-sym mark :colors)]
+    (if (= :static type)
+      (-> vega
         (update-in-with-kv-index [:marks [:name mark] :encode :update :stroke] assoc :value stroke)
         (update-in-with-kv-index [:marks [:name mark] :encode :update :strokeWidth] assoc :value strokeWidth))
-    (-> vega
+      (-> vega
         (update :scales conj {:name   sym
                               :type   type
                               :domain {:data data :field field}
                               :range  {:scheme scheme}})
         (update-in-with-kv-index [:marks [:name mark] :encode :update :fill] assoc :scale sym :field field)
-        (update-in-with-kv-index [:marks [:name mark] :encode :update :stroke] assoc :value stroke))))
+        (update-in-with-kv-index [:marks [:name mark] :encode :update :stroke] assoc :value stroke)))))
 
 (comment
   (let [canvas {:height  500
@@ -171,7 +183,7 @@
       vega-template
       (assoc :marks [{:name   :nodes
                       :encode {:enter {:fill {}}}}])
-      (add-colors "color" :nodes {:data :node-data :field "group" :type :ordinal :scheme "xyc"})
+      (add-colors :nodes {:data :node-data :field "group" :type :ordinal :scheme "xyc"})
       #_(oz/view! :mode :vega))))
 
 (defn add-axis
@@ -263,18 +275,6 @@
                                                                   :values  (js "{fx: null, fy: null}")})
     (update-in-with-kv-index [:marks [:name nodes-sym] :encode :update] assoc :cursor {:value :pointer})))
 
-
-(defn prop-sym
-  [sym prop]
-  (-> sym
-    name
-    (str "_" (name prop))
-    keyword))
-
-(defn data-sym
-  [sym]
-  (prop-sym sym :data))
-
 (defn add-nodes
   [vega sym nodes]
   (let  [r (prop-sym sym :radius)]
@@ -285,7 +285,7 @@
                            :zindex    1
                            :from      {:data (data-sym sym)}
                            :on        []
-                           :encode    {:enter  {} ; TODO move to add-node-labels
+                           :encode    {:enter  {}
                                        :update {:size {:signal (js "2 * %s * %s" r r)}}}
                            :transform []}))))
 
@@ -301,17 +301,18 @@
                          :transform   []})))
 
 (defn add-node-labels
-  [vega sym nodes-sym label-prop]
-  (-> vega
-    (update-in-with-kv-index [:marks [:name nodes-sym] :encode :enter] assoc :label {:field label-prop})
-    (update :marks conj {:name   sym
-                         :type   :text
-                         :from   {:data nodes-sym}
-                         :zindex 2
-                         :encode {:enter  {:text  {:field :label}
-                                           :align {:value :center}}
-                                  :update {:x {:field :x}
-                                           :y {:field :y}}}})))
+  [vega nodes-sym label-prop]
+  (let [sym (prop-sym nodes-sym :labels)]
+    (-> vega
+      (update-in-with-kv-index [:marks [:name nodes-sym] :encode :enter] assoc :label {:field label-prop})
+      (update :marks conj {:name   sym
+                           :type   :text
+                           :from   {:data nodes-sym}
+                           :zindex 2
+                           :encode {:enter  {:text  {:field :label}
+                                             :align {:value :center}}
+                                    :update {:x {:field :x}
+                                             :y {:field :y}}}}))))
 
 (comment
   ;; Initial Setup
@@ -332,16 +333,16 @@
                                                 :static     {:init false
                                                              :sym  :static}})
     (add-node-dragging :node :fix :nodes)
-    (add-node-labels :node-labels :nodes :name)
-    (add-colors :node-color :nodes {:type   :ordinal
-                                    :data   :nodes_data
-                                    :field  :group
-                                    :stroke "white"})
-    (add-colors :link-color :links {:type        :static
-                                    :strokeWidth 0.5
-                                    :stroke      "#ccc"})
-    (add-colors :node-label-color :node-labels {:type   :static
-                                                :stroke "black"})
+    (add-node-labels :nodes :name)
+    (add-colors :nodes {:type   :ordinal
+                        :data   :nodes_data
+                        :field  :group
+                        :stroke "white"})
+    (add-colors :links {:type        :static
+                        :strokeWidth 0.5
+                        :stroke      "#ccc"})
+    (add-colors :nodes_labels {:type   :static
+                               :stroke "black"})
     (add-force :collide
       {:radius   {:name :nodes_radius
                   :init 10 :min 1 :max 50}
