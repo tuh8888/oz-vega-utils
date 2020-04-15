@@ -72,7 +72,7 @@
 
 (defn force-property-sym
   [force-name property-name]
-  (str (name force-name) (str/capitalize (name property-name))))
+  (str (name force-name) "_" (name property-name)))
 
 (defn map-vals
   [f m]
@@ -201,7 +201,7 @@
 (comment
   (-> canvas
     vega-template
-    (add-group-gravity "xscale" :nodes "group" :node-data {:init 0.1 :min 0.1 :max 1 :step 0.1})))
+    (add-group-gravity "xscale" :nodes "group" :nodes_data {:init 0.1 :min 0.1 :max 1 :step 0.1})))
 
 (defn add-force-sim
   [vega fix-sym restart-sym nodes-sym links-sym {:keys [iterations static]
@@ -259,29 +259,33 @@
                                                                   :values  (js "{fx: null, fy: null}")})
     (update-in-with-kv-index [:marks [:name nodes-sym] :encode :update] assoc :cursor {:value :pointer})))
 
+(defn data-sym
+  [sym]
+  (keyword (str (name sym) "_data")))
+
 (defn add-nodes
-  [vega nodes-sym data-sym node-radius-sym nodes]
+  [vega sym node-radius-sym nodes]
   (-> vega
-    (update :data conj {:name data-sym :values nodes})
-    (update :marks conj {:name      nodes-sym
+    (update :data conj {:name (data-sym sym) :values nodes})
+    (update :marks conj {:name      sym
                          :type      :symbol
                          :zindex    1
-                         :from      {:data data-sym}
+                         :from      {:data (data-sym sym)}
                          :on        []
-                         :encode    {:enter  {:name {:field "name"}}
+                         :encode    {:enter  {:name {:field "name"}} ; TODO move to add-node-labels
                                      :update {:size {:signal (js "2 * %s * %s" node-radius-sym node-radius-sym)}}}
                          :transform []})))
 
 (defn add-links
-  [vega links-sym data-sym links]
+  [vega sym links]
   (-> vega
-      (update :data conj {:name data-sym :values links})
-      (update :marks conj {:name        links-sym
-                           :type        :path
-                           :from        {:data data-sym}
-                           :interactive false
-                           :encode      {}
-                           :transform   []})))
+    (update :data conj {:name (data-sym sym) :values links})
+    (update :marks conj {:name        sym
+                         :type        :path
+                         :from        {:data (data-sym sym)}
+                         :interactive false
+                         :encode      {}
+                         :transform   []})))
 
 (defn add-node-labels
   [vega sym nodes-sym]
@@ -301,30 +305,31 @@
     (oz/live-reload! "src/oz-vega-utils/force_directed_layout.clj")
     (def data (oz/load"/home/harrison/Downloads/miserables.json"))))
 
+
 (let [width  1200
       height 500]
   (-> {:width       width
        :height      height
        :description "A node-link diagram with force-directed layout, depicting character co-occurrence in the novel Les Misérables."}
     vega-template
-    (add-nodes :nodes :node-data "nodeRadius" (:nodes data))
-    (add-links :links "link-data" (:links data))
+    (add-nodes :nodes :node_radius (:nodes data))
+    (add-links :links (:links data))
     (add-force-sim :fix :restart :nodes :links {:iterations 300
                                                 :static     {:init false
                                                              :sym  "static"}})
     (add-node-dragging :node :fix :nodes)
     (add-node-labels :node-labels :nodes)
-    (add-colors "node-color" :nodes {:type   :ordinal
-                                     :data   :node-data
-                                     :field  "group"
-                                     :stroke "white"})
-    (add-colors "link-color" :links {:type        :static
-                                     :strokeWidth 0.5
-                                     :stroke      "#ccc"})
-    (add-colors "node-label-color" :node-labels {:type   :static
-                                                 :stroke "black"})
+    (add-colors :node-color :nodes {:type   :ordinal
+                                    :data   :nodes_data
+                                    :field  "group"
+                                    :stroke "white"})
+    (add-colors :link-color :links {:type        :static
+                                    :strokeWidth 0.5
+                                    :stroke      "#ccc"})
+    (add-colors :node-label-color :node-labels {:type   :static
+                                                :stroke "black"})
     (add-force :collide
-      {:radius   {:name "nodeRadius"
+      {:radius   {:name :node_radius
                   :init 10 :min 1 :max 50}
        :strength {:init 0.7 :min 0.1 :max 1 :step 0.1}})
     (add-force :nbody
@@ -333,7 +338,7 @@
        #_#_:distanceMin {:init 1 :min 0 :max 100}
        #_#_:distanceMax {:init 1 :min 0 :max 100}})
     (add-force :link
-      {:links        "link-data"
+      {:links        :links_data
        :distance     {:init 30 :min 5 :max 100}
        #_#_:strength {:init 0.7 :min 0.1 :max 1 :step 0.1}})
     (add-force :center
@@ -341,10 +346,10 @@
        :y {:init (/ height 2)}})
     (add-group-gravity "x-scale" :nodes {:axis     :x
                                          :field    "group"
-                                         :data     :node-data
+                                         :data     :nodes_data
                                          :strength {:init 0.1 :min 0.1 :max 1 :step 0.1}})
     (add-group-gravity "y-scale" :nodes {:axis     :y
                                          :field    "group"
-                                         :data     :node-data
+                                         :data     :nodes_data
                                          :strength {:init 0.5 :min 0.1 :max 2 :step 0.2}})
     (oz/view! :mode :vega)))
