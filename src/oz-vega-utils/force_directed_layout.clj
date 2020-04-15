@@ -207,9 +207,7 @@
         static-sym      "static"
         node-sym        "node"
         node-data-sym   "node-data"
-        link-data-sym   "link-data"
-        center-y-sym    "centerY"
-        x-scale-sym     "xscale"]
+        link-data-sym   "link-data"]
     (-> canvas
         vega-template
         (update :data conj {:name node-data-sym :values nodes})
@@ -245,10 +243,9 @@
                                           :modify  node-sym
                                           :values  (format "%s === true ? {fx: node.x, fy: node.y} : {fx: %s[0], fy: %s[1]}" fix-sym fix-sym fix-sym)}
                                          {:trigger (format "!%s" fix-sym) :modify node-sym :values "{fx: null, fy: null}"}]
-                             :encode    {:enter  (let [{:keys [key stroke]} node-color]
+                             :encode    {:enter  (let [{:keys [stroke]} node-color]
                                                    {:stroke     {:value stroke}
-                                                    :name       {:field "name"}
-                                                    :yfocus     {:signal center-y-sym}})
+                                                    :name       {:field "name"}})
                                          :update {:size   {:signal (str "2 * " node-radius-sym " * " node-radius-sym)}
                                                   :cursor {:value :pointer}}}
                              :transform [{:type       :force
