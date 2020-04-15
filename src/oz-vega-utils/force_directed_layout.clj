@@ -272,26 +272,23 @@
                            :transform   []})))
 
 (defn add-node-labels
-  [vega sym nodes-sym text-color]
+  [vega sym nodes-sym]
   (-> vega
       (update :marks conj {:name   sym
                            :type   :text
                            :from   {:data nodes-sym}
                            :zindex 2
-                           :encode {:enter  (let [{:keys [stroke]} text-color]
-                                              {:text   {:field "name"}
-                                               :stroke {:value stroke}
-                                               :align  {:value "center"}})
+                           :encode {:enter  {:text  {:field "name"}
+                                             :align {:value "center"}}
                                     :update {:x {:field "x"}
                                              :y {:field "y"}}}})))
 
 (defn force-directed-layout
   [{:keys [nodes links]}
-   & {:keys [canvas text-color labeled? sim]
+   & {:keys [canvas labeled? sim]
       :or   {canvas     {:height  500
                          :width   700
                          :padding 0}
-             text-color {:stroke "black"}
              sim        {:static     {:init true
                                       :sym  "static"}
                          :iterations 300}}}]
@@ -310,7 +307,7 @@
         (add-links links-sym links link-data-sym)
         (add-force-sim fix-sym restart-sym nodes-sym links-sym sim)
         (add-node-dragging selected-node-sym fix-sym nodes-sym)
-        (cond-> labeled? (add-node-labels node-labels-sym nodes-sym text-color)))))
+        (cond-> labeled? (add-node-labels node-labels-sym nodes-sym)))))
 
 (comment
   ;; Initial Setup
@@ -321,44 +318,46 @@
 (let [width  1200
       height 500]
   (-> data
-      (force-directed-layout
-        :description "A node-link diagram with force-directed layout, depicting character co-occurrence in the novel Les Misérables."
-        :labeled? true
-        :canvas {:width  width
-                 :height height}
-        :sim {:static
-              {:init false
-               :sym  "static"}})
+    (force-directed-layout
+      :description "A node-link diagram with force-directed layout, depicting character co-occurrence in the novel Les Misérables."
+      :labeled? true
+      :canvas {:width  width
+               :height height}
+      :sim {:static
+            {:init false
+             :sym  "static"}})
 
-      (add-colors "node-color" :nodes {:type   :ordinal
-                                       :data   "node-data"
-                                       :field  "group"
-                                       :stroke "white"})
-      (add-colors "link-color" :links {:type        :static
-                                       :strokeWidth 0.5
-                                       :stroke      "#ccc"})
-      (add-force :collide
-                 {:radius   {:name "nodeRadius"
-                             :init 10 :min 1 :max 50}
-                  :strength {:init 0.7 :min 0.1 :max 1 :step 0.1}})
-      (add-force :nbody
-                 {:strength        {:init -30 :min -100 :max 10}
-                  :theta           {:init 0.9 :min 0.1 :max 1 :step 0.1}
-                  #_#_:distanceMin {:init 1 :min 0 :max 100}
-                  #_#_:distanceMax {:init 1 :min 0 :max 100}})
-      (add-force :link
-                 {:links        "link-data"
-                  :distance     {:init 30 :min 5 :max 100}
-                  #_#_:strength {:init 0.7 :min 0.1 :max 1 :step 0.1}})
-      (add-force :center
-                 {:x {:init (/ width 2)}
-                  :y {:init (/ height 2)}})
-      (add-group-gravity "x-scale" :nodes {:axis     :x
-                                           :field    "group"
-                                           :data     "node-data"
-                                           :strength {:init 0.1 :min 0.1 :max 1 :step 0.1}})
-      (add-group-gravity "y-scale" :nodes {:axis     :y
-                                           :field    "group"
-                                           :data     "node-data"
-                                           :strength {:init 0.5 :min 0.1 :max 2 :step 0.2}})
-      (oz/view! :mode :vega)))
+    (add-colors "node-color" :nodes {:type   :ordinal
+                                     :data   "node-data"
+                                     :field  "group"
+                                     :stroke "white"})
+    (add-colors "link-color" :links {:type        :static
+                                     :strokeWidth 0.5
+                                     :stroke      "#ccc"})
+    (add-colors "node-label-color" :node-labels {:type :static
+                                                 :stroke "black"})
+    (add-force :collide
+      {:radius   {:name "nodeRadius"
+                  :init 10 :min 1 :max 50}
+       :strength {:init 0.7 :min 0.1 :max 1 :step 0.1}})
+    (add-force :nbody
+      {:strength        {:init -30 :min -100 :max 10}
+       :theta           {:init 0.9 :min 0.1 :max 1 :step 0.1}
+       #_#_:distanceMin {:init 1 :min 0 :max 100}
+       #_#_:distanceMax {:init 1 :min 0 :max 100}})
+    (add-force :link
+      {:links        "link-data"
+       :distance     {:init 30 :min 5 :max 100}
+       #_#_:strength {:init 0.7 :min 0.1 :max 1 :step 0.1}})
+    (add-force :center
+      {:x {:init (/ width 2)}
+       :y {:init (/ height 2)}})
+    (add-group-gravity "x-scale" :nodes {:axis     :x
+                                         :field    "group"
+                                         :data     "node-data"
+                                         :strength {:init 0.1 :min 0.1 :max 1 :step 0.1}})
+    (add-group-gravity "y-scale" :nodes {:axis     :y
+                                         :field    "group"
+                                         :data     "node-data"
+                                         :strength {:init 0.5 :min 0.1 :max 2 :step 0.2}})
+    (oz/view! :mode :vega)))
