@@ -254,18 +254,19 @@
              text-color {:stroke "black"}
              sim        {:static?    true
                          :iterations 300}}}]
-  (let [node-radius-sym "nodeRadius"
-        fix-sym         "fix"
-        restart-sym     "restart"
-        static-sym      "static"
-        node-sym        "node"
-        node-data-sym   "node-data"
-        link-data-sym   "link-data"]
+  (let [node-radius-sym   "nodeRadius"
+        fix-sym           "fix"
+        restart-sym       "restart"
+        static-sym        "static"
+        selected-node-sym "node"
+        nodes-sym         :nodes
+        node-data-sym     "node-data"
+        link-data-sym     "link-data"]
     (-> canvas
         vega-template
         (update :data conj {:name link-data-sym :values links})
         (add-nodes :nodes node-data-sym nodes node-radius-sym node-color)
-        (add-force-sim fix-sym restart-sym static-sym :nodes node-sym sim)
+        (add-force-sim fix-sym restart-sym static-sym nodes-sym selected-node-sym sim)
         (update :marks conj {:type        :path
                              :from        {:data link-data-sym}
                              :interactive false
