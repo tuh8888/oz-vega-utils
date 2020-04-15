@@ -138,12 +138,24 @@
         #_(oz/view! :mode :vega))))
 
 (defn add-colors
-  [vega sym  {:keys [domain type scheme]}]
+  [vega sym mark {:keys [data field type scheme]}]
   (-> vega
       (update :scales conj {:name   sym
-                            :type   type
-                            :domain domain
-                            :range  {:scheme scheme}})))
+                              :type   type
+                              :domain {:data data :field field}
+                              :range  {:scheme scheme}})
+      (update-in-with-kv-index [:marks [:name mark] :encode :enter :fill] assoc :scale sym :field field)))
+
+(comment
+  (let [canvas {:height  500
+                :width   1200
+                :padding 10}]
+    (-> canvas
+        vega-template
+        (assoc :marks [{:name   :nodes
+                        :encode {:enter {:fill {}}}}])
+        (add-colors "color-sym" :nodes {:data "node-data" :field "group" :type :ordinal :scheme "xyc"})
+        #_(oz/view! :mode :vega))))
 
 (defn add-axis
   [vega sym {:keys [orient domain type range]}]
@@ -209,7 +221,6 @@
                                :value       false
                                :on          [{:events {:signal fix-sym}
                                               :update (format "%s && %s.length" fix-sym fix-sym)}]})
-        (add-colors color-sym {:type :ordinal :domain {:data node-data-sym :field (:key node-color)} :scheme (:scheme node-color)})
         (add-axis x-scale-sym {:type :band :domain {:data node-data-sym :field (:key node-color)} :range "width" :orient :bottom})
         (update :marks conj {:name      :nodes
                              :type      :symbol
@@ -220,8 +231,7 @@
                                           :values  (format "%s === true ? {fx: node.x, fy: node.y} : {fx: %s[0], fy: %s[1]}" fix-sym fix-sym fix-sym)}
                                          {:trigger (format "!%s" fix-sym) :modify node-sym :values "{fx: null, fy: null}"}]
                              :encode    {:enter  (let [{:keys [key stroke]} node-color]
-                                                   {:fill   {:scale color-sym :field key}
-                                                    :stroke {:value stroke}
+                                                   {:stroke {:value stroke}
                                                     :name   {:field "name"}
                                                     :xfocus {:scale x-scale-sym :field key :band 0.5}
                                                     :yfocus {:signal center-y-sym}})
@@ -232,6 +242,7 @@
                                           :restart    {:signal restart-sym}
                                           :static     {:signal static-sym}
                                           :signal     :force}]})
+        (add-colors color-sym :nodes {:type :ordinal :data node-data-sym :field (:key node-color) :scheme (:scheme node-color)})
         (update :marks conj {:type        :path
                              :from        {:data link-data-sym}
                              :interactive false
