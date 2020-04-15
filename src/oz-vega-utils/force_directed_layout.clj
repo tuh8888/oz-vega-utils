@@ -158,11 +158,11 @@
         #_(oz/view! :mode :vega))))
 
 (defn add-axis
-  [vega sym {:keys [orient domain type range]}]
+  [vega sym {:keys [orient data field type range]}]
   (-> vega
       (update :scales conj {:name   sym
                             :type   type
-                            :domain domain
+                            :domain {:data data :field field}
                             :range  range})
       (update :axes conj {:orient orient
                           :scale  sym})))
@@ -170,8 +170,21 @@
 (comment
   (-> {}
       vega-template
-      (add-axis {:type :ordinal :range scheme :domain {:data node-data-sym :field "group"}})
-      (add-axis {:orient :bottom :type :band :domain {:data node-data-sym :field "group" :range "width"}})))
+      (add-axis {:type :ordinal :range scheme :data node-data-sym :field "group"})
+      (add-axis {:orient :bottom :type :band :data node-data-sym :field "group" :range "width"})))
+
+(defn add-group-gravity
+  [vega sym mark field data strength]
+  (-> vega
+      (add-axis sym {:orient :bottom :data data :type :band :range "width" :field field})
+      (update-in-with-kv-index [:marks [:name mark] :encode :enter] assoc :xfocus {:scale sym :field field :band 0.5})
+      (add-force :x {:x        "xfocus"
+                     :strength strength})))
+
+(comment
+  (-> canvas
+      vega-template
+      (add-group-gravity "xscale" :nodes "group" "node-data" {:init 0.1 :min 0.1 :max 1 :step 0.1})))
 
 (defn force-directed-layout
   [{:keys [nodes links]}
@@ -220,7 +233,6 @@
                                :value       false
                                :on          [{:events {:signal fix-sym}
                                               :update (format "%s && %s.length" fix-sym fix-sym)}]})
-        (add-axis x-scale-sym {:type :band :domain {:data node-data-sym :field (:key node-color)} :range "width" :orient :bottom})
         (update :marks conj {:name      :nodes
                              :type      :symbol
                              :zindex    1
@@ -230,10 +242,9 @@
                                           :values  (format "%s === true ? {fx: node.x, fy: node.y} : {fx: %s[0], fy: %s[1]}" fix-sym fix-sym fix-sym)}
                                          {:trigger (format "!%s" fix-sym) :modify node-sym :values "{fx: null, fy: null}"}]
                              :encode    {:enter  (let [{:keys [key stroke]} node-color]
-                                                   {:stroke {:value stroke}
-                                                    :name   {:field "name"}
-                                                    :xfocus {:scale x-scale-sym :field key :band 0.5}
-                                                    :yfocus {:signal center-y-sym}})
+                                                   {:stroke     {:value stroke}
+                                                    :name       {:field "name"}
+                                                    :yfocus     {:signal center-y-sym}})
                                          :update {:size   {:signal (str "2 * " node-radius-sym " * " node-radius-sym)}
                                                   :cursor {:value :pointer}}}
                              :transform [{:type       :force
@@ -296,7 +307,8 @@
       (add-force :center
                  {:x {:init (/ width 2)}
                   :y {:init (/ height 2)}})
-      (add-force :x
+      (add-group-gravity "x-scale" :nodes "group" "node-data" {:init 0.1 :min 0.1 :max 1 :step 0.1})
+      #_(add-force :x
                    {:x        "xfocus"
                     :strength {:init 0.1 :min 0.1 :max 1 :step 0.1}})
       (add-force :y
