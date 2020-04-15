@@ -86,6 +86,31 @@
       (add-force :collide {:radius {:init 1 :min 5 :max 6}})
       ((juxt :signals #(-> % :marks first :transform first :forces first)))))
 
+(defn vega-template
+  [{:keys [description height width padding]
+    :or   {height  500
+           width   700
+           padding 0}}]
+  {:$schema     "https://vega.github.io/schema/vega/v5.json"
+   :description description
+   :autosize    "none"
+   :width       width
+   :height      height
+   :padding     padding
+   :data        []
+   :signals     []
+   :scales      []
+   :axes        []
+   :marks       []})
+
+(comment
+  (let [canvas {:height  500
+                :width   1200
+                :padding 10}]
+    (-> canvas
+        vega-template
+        #_(oz/view! :mode :vega))))
+
 (defn force-directed-layout
   [{:keys [nodes links]}
    & {:keys [description canvas node-color link-color text-color labeled? sim]
@@ -97,100 +122,101 @@
              text-color {:stroke "black"}
              sim        {:static?    true
                          :iterations 300}}}]
-  (let [node-radius-sym                "nodeRadius"
-        fix-sym                        "fix"
-        restart-sym                    "restart"
-        static-sym                     "static"
-        node-sym                       "node"
-        node-data-sym                  "node-data"
-        link-data-sym                  "link-data"
-        color-sym                      "color"
-        center-y-sym                   "centerY"
-        x-scale-sym                    "xscale"
-        {:keys [width height padding]} canvas]
-    {:$schema     "https://vega.github.io/schema/vega/v5.json"
-     :description description
-     :autosize    "none"
-     :width       width
-     :height      height
-     :padding     padding
-     :data        [{:name node-data-sym :values nodes}
-                   {:name link-data-sym :values links}]
-     :signals     [{:name  static-sym
-                    :value (:static? sim)
-                    :bind  {:input "checkbox"}}
-                   {:description "State variable for active node fix status."
-                    :name        fix-sym
-                    :value       false
-                    :on          [{:events "symbol:mouseout[!event.buttons], window:mouseup"
-                                   :update "false"}
-                                  {:events "symbol:mouseover" :update (format "%s || true" fix-sym)}
-                                  {:events "[symbol:mousedown, window:mouseup] > window:mousemove!"
-                                   :update "xy()"
-                                   :force  true}]}
-                   {:description "Graph node most recently interacted with."
-                    :name        node-sym
-                    :value       nil
-                    :on          [{:events "symbol:mouseover" :update (format "%s === true ? item() : node" fix-sym)}]}
-                   {:description "Flag to restart Force simulation upon data changes."
-                    :name        restart-sym
-                    :value       false
-                    :on          [{:events {:signal fix-sym} :update (format "%s && %s.length" fix-sym fix-sym)}]}]
-     :scales      [(let [{:keys [key scheme]} node-color]
-                     {:name   color-sym
-                      :type   :ordinal
-                      :domain {:data node-data-sym :field key}
-                      :range  {:scheme scheme}})
-                   (let [{:keys [key]} node-color]
-                     {:name   x-scale-sym
-                      :type   :band
-                      :domain {:data node-data-sym :field key}
-                      :range  "width"})]
-     :axes        [{:orient :bottom
-                    :scale  x-scale-sym}]
-     :marks       (cond-> [{:name      :nodes
-                            :type      :symbol
-                            :zindex    1
-                            :from      {:data node-data-sym}
-                            :on        [{:trigger fix-sym
-                                         :modify  node-sym
-                                         :values  (format "%s === true ? {fx: node.x, fy: node.y} : {fx: %s[0], fy: %s[1]}" fix-sym fix-sym fix-sym)}
-                                        {:trigger (format "!%s" fix-sym) :modify node-sym :values "{fx: null, fy: null}"}]
-                            :encode    {:enter  (let [{:keys [key stroke]} node-color]
-                                                  {:fill   {:scale color-sym :field key}
-                                                   :stroke {:value stroke}
-                                                   :name   {:field "name"}
-                                                   :xfocus {:scale x-scale-sym :field key :band 0.5}
-                                                   :yfocus {:signal center-y-sym}})
-                                        :update {:size   {:signal (str "2 * " node-radius-sym " * " node-radius-sym)}
-                                                 :cursor {:value :pointer}}}
-                            :transform [{:type       :force
-                                         :iterations (:iterations sim)
-                                         :restart    {:signal restart-sym}
-                                         :static     {:signal static-sym}
-                                         :signal     :force}]}
-                           {:type        :path
-                            :from        {:data link-data-sym}
-                            :interactive false
-                            :encode      {:update (let [{:keys [stroke width]} link-color]
-                                                    {:stroke      {:value stroke}
-                                                     :strokeWidth {:value width}})}
-                            :transform   [{:type    :linkpath
-                                           :require {:signal :force}
-                                           :shape   :line
-                                           :sourceX "datum.source.x"
-                                           :sourceY "datum.source.y"
-                                           :targetX "datum.target.x"
-                                           :targetY "datum.target.y"}]}]
-                    labeled? (conj {:type   :text
-                                    :from   {:data :nodes}
-                                    :zindex 2
-                                    :encode {:enter  (let [{:keys [stroke]} text-color]
-                                                       {:text   {:field "name"}
-                                                        :stroke {:value stroke}
-                                                        :align  {:value "center"}})
-                                             :update {:x {:field "x"}
-                                                      :y {:field "y"}}}}))}))
+  (let [node-radius-sym "nodeRadius"
+        fix-sym         "fix"
+        restart-sym     "restart"
+        static-sym      "static"
+        node-sym        "node"
+        node-data-sym   "node-data"
+        link-data-sym   "link-data"
+        color-sym       "color"
+        center-y-sym    "centerY"
+        x-scale-sym     "xscale"]
+    (-> canvas
+        vega-template
+        (update :data conj {:name node-data-sym :values nodes})
+        (update :data conj {:name link-data-sym :values links})
+        (update :signals conj {:name  static-sym
+                               :value (:static? sim)
+                               :bind  {:input "checkbox"}})
+        (update :signals conj {:description "State variable for active node fix status."
+                               :name        fix-sym
+                               :value       false
+                               :on          [{:events "symbol:mouseout[!event.buttons], window:mouseup"
+                                              :update "false"}
+                                             {:events "symbol:mouseover"
+                                              :update (format "%s || true" fix-sym)}
+                                             {:events "[symbol:mousedown, window:mouseup] > window:mousemove!"
+                                              :update "xy()"
+                                              :force  true}]})
+
+        (update :signals conj {:description "Graph node most recently interacted with."
+                               :name        node-sym
+                               :value       nil
+                               :on          [{:events "symbol:mouseover"
+                                              :update (format "%s === true ? item() : node" fix-sym)}]})
+
+        (update :signals conj {:description "Flag to restart Force simulation upon data changes."
+                               :name        restart-sym
+                               :value       false
+                               :on          [{:events {:signal fix-sym}
+                                              :update (format "%s && %s.length" fix-sym fix-sym)}]})
+
+        (update :scales conj (let [{:keys [key scheme]} node-color]
+                               {:name   color-sym
+                                :type   :ordinal
+                                :domain {:data node-data-sym :field key}
+                                :range  {:scheme scheme}}))
+        (update :scales conj (let [{:keys [key]} node-color]
+                               {:name   x-scale-sym
+                                :type   :band
+                                :domain {:data node-data-sym :field key}
+                                :range  "width"}))
+        (update :axes conj {:orient :bottom
+                            :scale  x-scale-sym})
+        (update :marks conj {:name      :nodes
+                             :type      :symbol
+                             :zindex    1
+                             :from      {:data node-data-sym}
+                             :on        [{:trigger fix-sym
+                                          :modify  node-sym
+                                          :values  (format "%s === true ? {fx: node.x, fy: node.y} : {fx: %s[0], fy: %s[1]}" fix-sym fix-sym fix-sym)}
+                                         {:trigger (format "!%s" fix-sym) :modify node-sym :values "{fx: null, fy: null}"}]
+                             :encode    {:enter  (let [{:keys [key stroke]} node-color]
+                                                   {:fill   {:scale color-sym :field key}
+                                                    :stroke {:value stroke}
+                                                    :name   {:field "name"}
+                                                    :xfocus {:scale x-scale-sym :field key :band 0.5}
+                                                    :yfocus {:signal center-y-sym}})
+                                         :update {:size   {:signal (str "2 * " node-radius-sym " * " node-radius-sym)}
+                                                  :cursor {:value :pointer}}}
+                             :transform [{:type       :force
+                                          :iterations (:iterations sim)
+                                          :restart    {:signal restart-sym}
+                                          :static     {:signal static-sym}
+                                          :signal     :force}]})
+        (update :marks conj {:type        :path
+                             :from        {:data link-data-sym}
+                             :interactive false
+                             :encode      {:update (let [{:keys [stroke width]} link-color]
+                                                     {:stroke      {:value stroke}
+                                                      :strokeWidth {:value width}})}
+                             :transform   [{:type    :linkpath
+                                            :require {:signal :force}
+                                            :shape   :line
+                                            :sourceX "datum.source.x"
+                                            :sourceY "datum.source.y"
+                                            :targetX "datum.target.x"
+                                            :targetY "datum.target.y"}]})
+        (cond-> labeled? (update :marks conj {:type   :text
+                                              :from   {:data :nodes}
+                                              :zindex 2
+                                              :encode {:enter  (let [{:keys [stroke]} text-color]
+                                                                 {:text   {:field "name"}
+                                                                  :stroke {:value stroke}
+                                                                  :align  {:value "center"}})
+                                                       :update {:x {:field "x"}
+                                                                :y {:field "y"}}}})))))
 
 (comment
   ;; Initial Setup
@@ -223,7 +249,7 @@
       (add-force :center
                  {:x {:init (/ width 2)}
                   :y {:init (/ height 2)}})
-      #_(add-force :x
+      (add-force :x
                    {:x        "xfocus"
                     :strength {:init 0.1 :min 0.1 :max 1 :step 0.1}})
       (add-force :y
