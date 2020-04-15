@@ -64,8 +64,9 @@
       (util/update-in-with-kv-index [:marks [:name nodes-mark] :transform] conj {:type       :force
                                                                                  :iterations iterations
                                                                                  :restart    {:signal restart-sym}
-                                                                                 :static     (cond-> static
-                                                                                               (boolean? (:init static)) {:signal static-sym})
+                                                                                 :static     (if (boolean? (:init static))
+                                                                                               {:signal static-sym}
+                                                                                               static)
                                                                                  :signal     :force})
       (util/update-in-with-kv-index [:marks [:name links-mark] :transform] conj {:type    :linkpath
                                                                                  :require {:signal :force}
