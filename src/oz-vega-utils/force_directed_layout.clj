@@ -250,6 +250,25 @@
                                        :update {:size {:signal (str "2 * " node-radius-sym " * " node-radius-sym)}}}
                            :transform []})))
 
+(defn add-links
+  [vega links-sym links data-sym link-color]
+  (-> vega
+      (update :data conj {:name data-sym :values links})
+      (update :marks conj {:name        links-sym
+                           :type        :path
+                           :from        {:data data-sym}
+                           :interactive false
+                           :encode      {:update (let [{:keys [stroke width]} link-color]
+                                                   {:stroke      {:value stroke}
+                                                    :strokeWidth {:value width}})}
+                           :transform   [{:type    :linkpath
+                                          :require {:signal :force}
+                                          :shape   :line
+                                          :sourceX "datum.source.x"
+                                          :sourceY "datum.source.y"
+                                          :targetX "datum.target.x"
+                                          :targetY "datum.target.y"}]})))
+
 (defn force-directed-layout
   [{:keys [nodes links]}
    & {:keys [canvas node-color link-color text-color labeled? sim]
@@ -260,34 +279,22 @@
              node-color {:key "group" :scheme "category20c" :stroke "white"}
              text-color {:stroke "black"}
              sim        {:static     {:init true
-                                      :sym "static"}
+                                      :sym  "static"}
                          :iterations 300}}}]
   (let [node-radius-sym   "nodeRadius"
         fix-sym           "fix"
         restart-sym       "restart"
         selected-node-sym "node"
         nodes-sym         :nodes
+        links-sym         :links
         node-data-sym     "node-data"
         link-data-sym     "link-data"]
     (-> canvas
         vega-template
-        (update :data conj {:name link-data-sym :values links})
-        (add-nodes :nodes node-data-sym nodes node-radius-sym node-color)
+        (add-nodes nodes-sym node-data-sym nodes node-radius-sym node-color)
+        (add-links links-sym links link-data-sym link-color )
         (add-force-sim fix-sym restart-sym nodes-sym sim)
         (add-node-dragging selected-node-sym fix-sym nodes-sym)
-        (update :marks conj {:type        :path
-                             :from        {:data link-data-sym}
-                             :interactive false
-                             :encode      {:update (let [{:keys [stroke width]} link-color]
-                                                     {:stroke      {:value stroke}
-                                                      :strokeWidth {:value width}})}
-                             :transform   [{:type    :linkpath
-                                            :require {:signal :force}
-                                            :shape   :line
-                                            :sourceX "datum.source.x"
-                                            :sourceY "datum.source.y"
-                                            :targetX "datum.target.x"
-                                            :targetY "datum.target.y"}]})
         (cond-> labeled? (update :marks conj {:type   :text
                                               :from   {:data :nodes}
                                               :zindex 2
