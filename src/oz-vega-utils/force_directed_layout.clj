@@ -6,6 +6,9 @@
   [f pred coll]
   (map #(cond-> % (pred %) f) coll))
 
+(comment
+  (map-if inc even? [100 10 3 1001 5]))
+
 (defn js
   [s & syms]
   (if (seq syms)
@@ -46,6 +49,17 @@
                                                         :coll coll}))
       (apply update coll k f args))))
 
+(defn assoc-in-with-fn
+  [coll [fn-or-k & fns-and-ks] val]
+  (let [k (if (fn? fn-or-k)
+            (fn-or-k coll)
+            fn-or-k)]
+    (cond
+      (nil? k)         (throw (ex-info "Supplied fn did not find a key" {:kv   (:kv (meta fn-or-k))
+                                                                         :coll coll}))
+      (seq fns-and-ks) (update coll k assoc-in-with-fn fns-and-ks val)
+      :else            (assoc coll k val))))
+
 (defn get-in-with-fn
   [coll [fn-or-k & fns-and-ks]]
   (let [k (if (fn? fn-or-k)
@@ -55,9 +69,6 @@
       (get k)
       (cond-> (seq fns-and-ks) (get-in-with-fn fns-and-ks)))))
 
-(comment
-  (map-if inc even? [100 10 3 1001 5]))
-
 (defn ks->kv-index
   [ks]
   (map-if (fn [[k v :as kv]] (vary-meta #(index-of-elem-with-kv % k v) merge {:kv kv})) coll? ks))
@@ -65,8 +76,12 @@
 (defn get-in-with-kv-index
   [coll ks-and-kvs]
   (->> ks-and-kvs
-       ks->kv-index
-       (get-in-with-fn coll)))
+    ks->kv-index
+    (get-in-with-fn coll)))
+
+(defn assoc-in-with-kv-index
+  [coll ks-and-kvs val]
+  (assoc-in-with-fn coll (ks->kv-index ks-and-kvs) val))
 
 (defn update-in-with-kv-index
   [coll ks-and-kvs f & args]
@@ -79,6 +94,10 @@
                                   :transform [{:type   :force
                                                :forces 5}]}]}
     [:marks  [:name :nodes] :transform [:type :force] :forces])
+  (assoc-in-with-kv-index {:marks [{:name      :nodes
+                                    :transform [{:type   :force
+                                                 :forces 5}]}]}
+    [:marks  [:name :nodes] :transform [:type :force] :forces] 9)
   (update-in-with-kv-index {:marks [{:name      :nodes
                                      :transform [{:type   :force
                                                   :forces 5}]}]}
@@ -165,15 +184,15 @@
   (let [sym (prop-sym mark :colors)]
     (if (= :static type)
       (-> vega
-        (update-in-with-kv-index [:marks [:name mark] :encode :update :stroke] assoc :value stroke)
-        (update-in-with-kv-index [:marks [:name mark] :encode :update :strokeWidth] assoc :value strokeWidth))
+        (assoc-in-with-kv-index [:marks [:name mark] :encode :update :stroke :value] stroke)
+        (assoc-in-with-kv-index [:marks [:name mark] :encode :update :strokeWidth :value] strokeWidth))
       (-> vega
         (update :scales conj {:name   sym
                               :type   type
                               :domain {:data data :field field}
                               :range  {:scheme scheme}})
         (update-in-with-kv-index [:marks [:name mark] :encode :update :fill] assoc :scale sym :field field)
-        (update-in-with-kv-index [:marks [:name mark] :encode :update :stroke] assoc :value stroke)))))
+        (assoc-in-with-kv-index [:marks [:name mark] :encode :update :stroke :value] stroke)))))
 
 (comment
   (let [canvas {:height  500
@@ -209,10 +228,10 @@
                          ["height" :left])
         focus-sym      (str sym "Focus")]
     (-> vega
-        (add-axis sym {:orient orient :data data :type :band :range range :field field})
-        (update-in-with-kv-index [:marks [:name mark] :encode :enter] assoc focus-sym {:scale sym :field field :band 0.5})
-        (add-force axis {axis      focus-sym
-                         :strength strength}))))
+      (add-axis sym {:orient orient :data data :type :band :range range :field field})
+      (assoc-in-with-kv-index [:marks [:name mark] :encode :enter focus-sym] {:scale sym :field field :band 0.5})
+      (add-force axis {axis      focus-sym
+                       :strength strength}))))
 
 (comment
   (-> canvas
@@ -276,7 +295,7 @@
       (update-in-with-kv-index [:marks [:name nodes-sym] :on] conj {:trigger (js "!%s" fix-sym)
                                                                     :modify  selected-node-sym
                                                                     :values  (js "{fx: null, fy: null}")})
-      (update-in-with-kv-index [:marks [:name nodes-sym] :encode :update] assoc :cursor {:value :pointer}))))
+      (assoc-in-with-kv-index [:marks [:name nodes-sym] :encode :update :cursor :value] :pointer))))
 
 (defn add-nodes
   [vega sym nodes]
@@ -307,7 +326,7 @@
   [vega nodes-sym label-prop]
   (let [sym (prop-sym nodes-sym :labels)]
     (-> vega
-      (update-in-with-kv-index [:marks [:name nodes-sym] :encode :enter] assoc :label {:field label-prop})
+      (assoc-in-with-kv-index [:marks [:name nodes-sym] :encode :enter :label :field] label-prop)
       (update :marks conj {:name   sym
                            :type   :text
                            :from   {:data nodes-sym}
