@@ -10,16 +10,15 @@
        first
        first))
 
-(defn- do-update-in-with-fn
-  [coll p ksf f args]
-  (let [i         (if (fn? p) (p coll) p)
-        this-f    (if (seq ksf) do-update-in-with-fn f)
-        this-args (if (seq ksf) [(first ksf) (rest ksf) f args] args)]
-    (apply update coll i this-f this-args)))
-
 (defn update-in-with-fn
-  [coll ksf f & args]
-  (do-update-in-with-fn coll (first ksf) (rest ksf) f args))
+  [coll [fn-or-k & fns-and-ks] f & args]
+  (let [k        (if (fn? fn-or-k)
+                   (fn-or-k coll)
+                   fn-or-k)
+        [f args] (if (seq fns-and-ks)
+                   [update-in-with-fn (into [fns-and-ks f] args)]
+                   [f args])]
+    (apply update coll k f args)))
 
 (defn update-in-with-kv-index
   [coll ksf f & args]
