@@ -138,13 +138,14 @@
         #_(oz/view! :mode :vega))))
 
 (defn add-colors
-  [vega sym mark {:keys [data field type scheme] :or {scheme "category20c"}}]
+  [vega sym mark {:keys [data field type scheme stroke] :or {scheme "category20c"}}]
   (-> vega
       (update :scales conj {:name   sym
                             :type   type
                             :domain {:data data :field field}
                             :range  {:scheme scheme}})
-      (update-in-with-kv-index [:marks [:name mark] :encode :enter :fill] assoc :scale sym :field field)))
+      (update-in-with-kv-index [:marks [:name mark] :encode :enter :fill] assoc :scale sym :field field)
+      (update-in-with-kv-index [:marks [:name mark] :encode :enter :stroke] assoc :value stroke)))
 
 (comment
   (let [canvas {:height  500
@@ -191,7 +192,7 @@
       (add-group-gravity "xscale" :nodes "group" "node-data" {:init 0.1 :min 0.1 :max 1 :step 0.1})))
 
 (defn add-force-sim
-  [vega fix-sym restart-sym nodes-sym {:keys [iterations static]}]
+  [vega fix-sym restart-sym nodes-sym links-sym {:keys [iterations static]}]
   (-> vega
       (cond-> (:sym static) (update :signals conj {:name  (:sym static)
                                                    :value (:init static)
@@ -208,7 +209,14 @@
                                                                            :restart    {:signal restart-sym}
                                                                            :static     (cond-> static
                                                                                          (:sym static) (->> :sym (hash-map :signal)))
-                                                                           :signal     :force})))
+                                                                           :signal     :force})
+      (update-in-with-kv-index [:marks [:name links-sym] :transform] conj {:type    :linkpath
+                                                                           :require {:signal :force}
+                                                                           :shape   :line
+                                                                           :sourceX "datum.source.x"
+                                                                           :sourceY "datum.source.y"
+                                                                           :targetX "datum.target.x"
+                                                                           :targetY "datum.target.y"})))
 
 (defn add-node-dragging
   [vega selected-node-sym fix-sym nodes-sym]
@@ -236,7 +244,7 @@
       (update-in-with-kv-index [:marks [:name nodes-sym] :encode :update] assoc :cursor {:value :pointer})))
 
 (defn add-nodes
-  [vega nodes-sym data-sym nodes node-radius-sym node-color]
+  [vega nodes-sym data-sym nodes node-radius-sym]
   (-> vega
       (update :data conj {:name data-sym :values nodes})
       (update :marks conj {:name      nodes-sym
@@ -244,9 +252,7 @@
                            :zindex    1
                            :from      {:data data-sym}
                            :on        []
-                           :encode    {:enter  (let [{:keys [stroke]} node-color]
-                                                 {:stroke {:value stroke}
-                                                  :name   {:field "name"}})
+                           :encode    {:enter  {:name {:field "name"}}
                                        :update {:size {:signal (str "2 * " node-radius-sym " * " node-radius-sym)}}}
                            :transform []})))
 
@@ -261,22 +267,15 @@
                            :encode      {:update (let [{:keys [stroke width]} link-color]
                                                    {:stroke      {:value stroke}
                                                     :strokeWidth {:value width}})}
-                           :transform   [{:type    :linkpath
-                                          :require {:signal :force}
-                                          :shape   :line
-                                          :sourceX "datum.source.x"
-                                          :sourceY "datum.source.y"
-                                          :targetX "datum.target.x"
-                                          :targetY "datum.target.y"}]})))
+                           :transform   []})))
 
 (defn force-directed-layout
   [{:keys [nodes links]}
-   & {:keys [canvas node-color link-color text-color labeled? sim]
+   & {:keys [canvas link-color text-color labeled? sim]
       :or   {canvas     {:height  500
                          :width   700
                          :padding 0}
              link-color {:width 0.5 :stroke "#ccc"}
-             node-color {:key "group" :scheme "category20c" :stroke "white"}
              text-color {:stroke "black"}
              sim        {:static     {:init true
                                       :sym  "static"}
@@ -291,9 +290,9 @@
         link-data-sym     "link-data"]
     (-> canvas
         vega-template
-        (add-nodes nodes-sym node-data-sym nodes node-radius-sym node-color)
+        (add-nodes nodes-sym node-data-sym nodes node-radius-sym)
         (add-links links-sym links link-data-sym link-color )
-        (add-force-sim fix-sym restart-sym nodes-sym sim)
+        (add-force-sim fix-sym restart-sym nodes-sym links-sym sim)
         (add-node-dragging selected-node-sym fix-sym nodes-sym)
         (cond-> labeled? (update :marks conj {:type   :text
                                               :from   {:data :nodes}
@@ -321,11 +320,12 @@
                  :height height}
         :sim {:static
               {:init false
-               :sym "static"}})
+               :sym  "static"}})
 
       (add-colors "node-color" :nodes {:type  :ordinal
                                        :data  "node-data"
-                                       :field "group"})
+                                       :field "group"
+                                       :stroke "white"})
       (add-force :collide
                  {:radius   {:name "nodeRadius"
                              :init 10 :min 1 :max 50}
@@ -350,10 +350,4 @@
                                            :field    "group"
                                            :data     "node-data"
                                            :strength {:init 0.5 :min 0.1 :max 2 :step 0.2}})
-      #_(add-force :x
-                   {:x        "xfocus"
-                    :strength {:init 0.1 :min 0.1 :max 1 :step 0.1}})
-      #_(add-force :y
-                   {:y        "yfocus"
-                    :strength 0.1})
       (oz/view! :mode :vega)))
