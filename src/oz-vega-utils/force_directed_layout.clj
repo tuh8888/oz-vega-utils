@@ -27,14 +27,14 @@
 
 (defn add-group-gravity
   "Add gravity according to the field for the mark."
-  [vega mark {:keys [field data strength axis]}]
+  [vega mark {:keys [field strength axis]}]
   (let [sym            (ovu/prop-sym mark field axis :gravity)
         [range orient] (if (= :x axis)
                          ["width" :bottom]
                          ["height" :left])
-        focus-sym      (str sym "Focus")]
+        focus-sym      (ovu/prop-sym mark field axis :focus)]
     (-> vega
-      (ovu/add-axis sym {:orient orient :data data :type :band :range range :field field})
+      (ovu/add-axis sym {:orient orient :data (ovu/prop-sym mark :data) :type :band :range range :field field})
       (util/assoc-in-with-kv-index [:marks [:name mark] :encode :enter focus-sym] {:scale sym :field field :band 0.5})
       (add-force mark axis {axis      focus-sym
                             :strength strength}))))
@@ -73,9 +73,9 @@
                                                                                  :targetY "datum.target.y"}))))
 
 (defn add-node-dragging
-  [vega nodes-sym links-sym]
-  (let [fix-sym           (ovu/prop-sym nodes-sym links-sym :fix)
-        selected-node-sym (ovu/prop-sym nodes-sym :selected)]
+  [vega nodes-mark links-mark]
+  (let [fix-sym           (ovu/prop-sym nodes-mark links-mark :fix)
+        selected-node-sym (ovu/prop-sym nodes-mark links-mark :selected)]
     (-> vega
       (update :signals conj {:name  selected-node-sym
                              :value nil
@@ -89,18 +89,18 @@
       (util/update-in-with-kv-index [:signals [:name fix-sym] :on] conj {:events (ovu/js "[symbol:mousedown, window:mouseup] > window:mousemove!")
                                                                          :update (ovu/js "xy()")
                                                                          :force  true})
-      (util/update-in-with-kv-index [:marks [:name nodes-sym] :on] conj {:trigger fix-sym
-                                                                         :modify  selected-node-sym
-                                                                         :values  (ovu/js "%s === true ? {fx: %s.x, fy: %s.y} : {fx: %s[0], fy: %s[1]}"
-                                                                                    fix-sym
-                                                                                    selected-node-sym
-                                                                                    selected-node-sym
-                                                                                    fix-sym
-                                                                                    fix-sym)})
-      (util/update-in-with-kv-index [:marks [:name nodes-sym] :on] conj {:trigger (ovu/js "!%s" fix-sym)
-                                                                         :modify  selected-node-sym
-                                                                         :values  (ovu/js "{fx: null, fy: null}")})
-      (util/assoc-in-with-kv-index [:marks [:name nodes-sym] :encode :update :cursor :value] :pointer))))
+      (util/update-in-with-kv-index [:marks [:name nodes-mark] :on] conj {:trigger fix-sym
+                                                                          :modify  selected-node-sym
+                                                                          :values  (ovu/js "%s === true ? {fx: %s.x, fy: %s.y} : {fx: %s[0], fy: %s[1]}"
+                                                                                     fix-sym
+                                                                                     selected-node-sym
+                                                                                     selected-node-sym
+                                                                                     fix-sym
+                                                                                     fix-sym)})
+      (util/update-in-with-kv-index [:marks [:name nodes-mark] :on] conj {:trigger (ovu/js "!%s" fix-sym)
+                                                                          :modify  selected-node-sym
+                                                                          :values  (ovu/js "{fx: null, fy: null}")})
+      (util/assoc-in-with-kv-index [:marks [:name nodes-mark] :encode :update :cursor :value] :pointer))))
 
 (defn add-nodes
   [vega sym nodes]
@@ -187,10 +187,8 @@
        :y {:init (/ height 2)}})
     (add-group-gravity :nodes {:axis     :x
                                :field    :group
-                               :data     :nodes_data
                                :strength {:init 0.1 :min 0.1 :max 1 :step 0.1}})
     (add-group-gravity :nodes {:axis     :y
                                :field    :group
-                               :data     :nodes_data
                                :strength {:init 0.5 :min 0.1 :max 2 :step 0.2}})
     (oz/view! :mode :vega)))
