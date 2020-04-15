@@ -1,151 +1,22 @@
 (ns oz-vega-utils.force-directed-layout
   (:require [oz.core :as oz]
-            [clojure.string :as str]))
-
-(defn map-if
-  [f pred coll]
-  (map #(cond-> % (pred %) f) coll))
-
-(comment
-  (map-if inc even? [100 10 3 1001 5]))
-
-(defn js
-  [s & syms]
-  (if (seq syms)
-    (->> syms
-      (map-if name keyword?)
-      (apply format s))
-    s))
-
-(defn prop-sym
-  [sym prop]
-  (-> sym
-    name
-    (str "_" (name prop))
-    keyword))
-
-(defn data-sym
-  [sym]
-  (prop-sym sym :data))
-
-(defn index-of-elem-with-kv
-  [coll k v]
-  (->> coll
-    (map-indexed vector)
-    (filter #(= v (-> % second k)))
-    first
-    first))
-
-(defn update-in-with-fn
-  [coll [fn-or-k & fns-and-ks] f & args]
-  (let [k        (if (fn? fn-or-k)
-                   (fn-or-k coll)
-                   fn-or-k)
-        [f args] (if (seq fns-and-ks)
-                   [update-in-with-fn (into [fns-and-ks f] args)]
-                   [f args])]
-    (if (nil? k)
-      (throw (ex-info "Supplied fn did not find a key" {:kv   (:kv (meta fn-or-k))
-                                                        :coll coll}))
-      (apply update coll k f args))))
-
-(defn assoc-in-with-fn
-  [coll [fn-or-k & fns-and-ks] val]
-  (let [k (if (fn? fn-or-k)
-            (fn-or-k coll)
-            fn-or-k)]
-    (cond
-      (nil? k)         (throw (ex-info "Supplied fn did not find a key" {:kv   (:kv (meta fn-or-k))
-                                                                         :coll coll}))
-      (seq fns-and-ks) (update coll k assoc-in-with-fn fns-and-ks val)
-      :else            (assoc coll k val))))
-
-(defn get-in-with-fn
-  [coll [fn-or-k & fns-and-ks]]
-  (let [k (if (fn? fn-or-k)
-            (fn-or-k coll)
-            fn-or-k)]
-    (-> coll
-      (get k)
-      (cond-> (seq fns-and-ks) (get-in-with-fn fns-and-ks)))))
-
-(defn ks->kv-index
-  [ks]
-  (map-if (fn [[k v :as kv]] (vary-meta #(index-of-elem-with-kv % k v) merge {:kv kv})) coll? ks))
-
-(defn get-in-with-kv-index
-  [coll ks-and-kvs]
-  (->> ks-and-kvs
-    ks->kv-index
-    (get-in-with-fn coll)))
-
-(defn assoc-in-with-kv-index
-  [coll ks-and-kvs val]
-  (assoc-in-with-fn coll (ks->kv-index ks-and-kvs) val))
-
-(defn update-in-with-kv-index
-  [coll ks-and-kvs f & args]
-  (let [ks-and-kvs (ks->kv-index ks-and-kvs)]
-    (apply update-in-with-fn coll ks-and-kvs f args)))
-
-(comment
-  (meta (second (ks->kv-index [:m [:l :n] 0])))
-  (get-in-with-kv-index {:marks [{:name      :nodes
-                                  :transform [{:type   :force
-                                               :forces 5}]}]}
-    [:marks  [:name :nodes] :transform [:type :force] :forces])
-  (assoc-in-with-kv-index {:marks [{:name      :nodes
-                                    :transform [{:type   :force
-                                                 :forces 5}]}]}
-    [:marks  [:name :nodes] :transform [:type :force] :forces] 9)
-  (update-in-with-kv-index {:marks [{:name      :nodes
-                                     :transform [{:type   :force
-                                                  :forces 5}]}]}
-    [:marks  [:name :nodes] :transform [:type :force] :forces]
-    assoc :x :y))
+            [oz-vega-utils.core :as ovu]
+            [oz-vega-utils.util :as util]))
 
 (defn force-property-sym
   [force-name property-name]
   (str (name force-name) "_" (name property-name)))
 
-(defn map-vals
-  [f m]
-  (into {} (map (juxt key (comp f val)) m)))
-
-(defn range-selector
-  [name {:keys [init min max step] :or {step 1}}]
-  {:name  name
-   :value init
-   :bind  {:input "range" :min min :max max :step step}})
-
-(defn props->prop-sel-map
-  [force props]
-  (->> props
-       (map  (fn [[property value]]
-               [property (if (coll? value)
-                           (let [name (or (:name value) (force-property-sym force property))]
-                             (range-selector name value))
-                           value)]))
-       (into {})))
-
-(defn add-signals
-  [m prop-sel-map]
-  (->> prop-sel-map
-       (map second)
-       (reduce (fn [m sel]
-                 (cond-> m (coll? sel) (update :signals conj sel)))
-               m)))
-
 (defn add-force
   [m force props]
-  (let [prop-sel-map (props->prop-sel-map force props)
-        m            (add-signals m prop-sel-map)]
-    (update-in-with-kv-index m [:marks [:name :nodes] :transform [:type :force] :forces]
-                             (fn [forces]
-                               (->> prop-sel-map
-                                    (map-vals #(cond-> % (coll? %) (->> :name (hash-map :signal))))
-                                    (merge {:force force})
-                                    (conj forces))))))
+  (let [prop-sel-map (ovu/props->prop-sel-map force props)
+        m            (ovu/add-signals m prop-sel-map)]
+    (util/update-in-with-kv-index m [:marks [:name :nodes] :transform [:type :force] :forces]
+      (fn [forces]
+        (->> prop-sel-map
+          (util/map-vals #(cond-> % (coll? %) (->> :name (hash-map :signal))))
+          (merge {:force force})
+          (conj forces))))))
 (comment
   (-> {:signals []
        :marks   [{:name      :nodes
@@ -154,52 +25,36 @@
       (add-force :collide {:radius {:init 1 :min 5 :max 6}})
       ((juxt :signals #(-> % :marks first :transform first :forces first)))))
 
-(defn vega-template
-  [{:keys [description height width padding]
-    :or   {height  500
-           width   700
-           padding 0}}]
-  {:$schema     "https://vega.github.io/schema/vega/v5.json"
-   :description description
-   :autosize    "none"
-   :width       width
-   :height      height
-   :padding     padding
-   :data        []
-   :signals     []
-   :scales      []
-   :axes        []
-   :marks       []})
 
 (comment
   (let [canvas {:height  500
                 :width   1200
                 :padding 10}]
     (-> canvas
-        vega-template
-        #_(oz/view! :mode :vega))))
+      ovu/vega-template
+      #_(oz/view! :mode :vega))))
 
 (defn add-colors
   [vega mark {:keys [data field type scheme stroke strokeWidth] :or {scheme "category20c"}}]
-  (let [sym (prop-sym mark :colors)]
+  (let [sym (ovu/prop-sym mark :colors)]
     (if (= :static type)
       (-> vega
-        (assoc-in-with-kv-index [:marks [:name mark] :encode :update :stroke :value] stroke)
-        (assoc-in-with-kv-index [:marks [:name mark] :encode :update :strokeWidth :value] strokeWidth))
+        (util/assoc-in-with-kv-index [:marks [:name mark] :encode :update :stroke :value] stroke)
+        (util/assoc-in-with-kv-index [:marks [:name mark] :encode :update :strokeWidth :value] strokeWidth))
       (-> vega
         (update :scales conj {:name   sym
                               :type   type
                               :domain {:data data :field field}
                               :range  {:scheme scheme}})
-        (update-in-with-kv-index [:marks [:name mark] :encode :update :fill] assoc :scale sym :field field)
-        (assoc-in-with-kv-index [:marks [:name mark] :encode :update :stroke :value] stroke)))))
+        (util/update-in-with-kv-index [:marks [:name mark] :encode :update :fill] assoc :scale sym :field field)
+        (util/assoc-in-with-kv-index [:marks [:name mark] :encode :update :stroke :value] stroke)))))
 
 (comment
   (let [canvas {:height  500
                 :width   1200
                 :padding 10}]
     (-> canvas
-      vega-template
+      ovu/vega-template
       (assoc :marks [{:name   :nodes
                       :encode {:enter {:fill {}}}}])
       (add-colors :nodes {:data :node-data :field "group" :type :ordinal :scheme "xyc"})
@@ -215,12 +70,6 @@
       (update :axes conj {:orient orient
                           :scale  sym})))
 
-(comment
-  (-> {}
-      vega-template
-      (add-axis {:type :ordinal :range scheme :data node-data-sym :field "group"})
-      (add-axis {:orient :bottom :type :band :data node-data-sym :field "group" :range "width"})))
-
 (defn add-group-gravity
   [vega sym mark {:keys [field data strength axis]}]
   (let [[range orient] (if (= :x axis)
@@ -229,14 +78,9 @@
         focus-sym      (str sym "Focus")]
     (-> vega
       (add-axis sym {:orient orient :data data :type :band :range range :field field})
-      (assoc-in-with-kv-index [:marks [:name mark] :encode :enter focus-sym] {:scale sym :field field :band 0.5})
+      (util/assoc-in-with-kv-index [:marks [:name mark] :encode :enter focus-sym] {:scale sym :field field :band 0.5})
       (add-force axis {axis      focus-sym
                        :strength strength}))))
-
-(comment
-  (-> canvas
-    vega-template
-    (add-group-gravity "xscale" :nodes "group" :nodes_data {:init 0.1 :min 0.1 :max 1 :step 0.1})))
 
 (defn add-force-sim
   [vega fix-sym restart-sym nodes-sym links-sym {:keys [iterations static]
@@ -253,80 +97,80 @@
     (update :signals conj {:name  restart-sym
                            :value false
                            :on    [{:events {:signal fix-sym}
-                                    :update (js "%s && %s.length" fix-sym fix-sym)}]})
-    (update-in-with-kv-index [:marks [:name nodes-sym] :transform] conj {:type       :force
-                                                                         :iterations iterations
-                                                                         :restart    {:signal restart-sym}
-                                                                         :static     (cond-> static
-                                                                                       (:sym static) (->> :sym (hash-map :signal)))
-                                                                         :signal     :force})
-    (update-in-with-kv-index [:marks [:name links-sym] :transform] conj {:type    :linkpath
-                                                                         :require {:signal :force}
-                                                                         :shape   :line
-                                                                         :sourceX "datum.source.x"
-                                                                         :sourceY "datum.source.y"
-                                                                         :targetX "datum.target.x"
-                                                                         :targetY "datum.target.y"})))
+                                    :update (ovu/js "%s && %s.length" fix-sym fix-sym)}]})
+    (util/update-in-with-kv-index [:marks [:name nodes-sym] :transform] conj {:type       :force
+                                                                              :iterations iterations
+                                                                              :restart    {:signal restart-sym}
+                                                                              :static     (cond-> static
+                                                                                            (:sym static) (->> :sym (hash-map :signal)))
+                                                                              :signal     :force})
+    (util/update-in-with-kv-index [:marks [:name links-sym] :transform] conj {:type    :linkpath
+                                                                              :require {:signal :force}
+                                                                              :shape   :line
+                                                                              :sourceX "datum.source.x"
+                                                                              :sourceY "datum.source.y"
+                                                                              :targetX "datum.target.x"
+                                                                              :targetY "datum.target.y"})))
 
 (defn add-node-dragging
   [vega fix-sym nodes-sym]
-  (let [selected-node-sym (prop-sym nodes-sym :selected)]
+  (let [selected-node-sym (ovu/prop-sym nodes-sym :selected)]
     (-> vega
       (update :signals conj {:name  selected-node-sym
                              :value nil
-                             :on    [{:events (js "symbol:mouseover")
-                                      :update (js "%s === true ? item() : %s" fix-sym selected-node-sym)}]})
+                             :on    [{:events (ovu/js "symbol:mouseover")
+                                      :update (ovu/js "%s === true ? item() : %s" fix-sym selected-node-sym)}]})
 
-      (update-in-with-kv-index [:signals [:name fix-sym] :on] conj {:events (js "symbol:mouseout[!event.buttons], window:mouseup")
-                                                                    :update "false"})
-      (update-in-with-kv-index [:signals [:name fix-sym] :on] conj {:events (js "symbol:mouseover")
-                                                                    :update (js "%s || true" fix-sym)})
-      (update-in-with-kv-index [:signals [:name fix-sym] :on] conj {:events (js "[symbol:mousedown, window:mouseup] > window:mousemove!")
-                                                                    :update (js "xy()")
-                                                                    :force  true})
-      (update-in-with-kv-index [:marks [:name nodes-sym] :on] conj {:trigger fix-sym
-                                                                    :modify  selected-node-sym
-                                                                    :values  (js "%s === true ? {fx: %s.x, fy: %s.y} : {fx: %s[0], fy: %s[1]}"
-                                                                               fix-sym
-                                                                               selected-node-sym
-                                                                               selected-node-sym
-                                                                               fix-sym
-                                                                               fix-sym)})
-      (update-in-with-kv-index [:marks [:name nodes-sym] :on] conj {:trigger (js "!%s" fix-sym)
-                                                                    :modify  selected-node-sym
-                                                                    :values  (js "{fx: null, fy: null}")})
-      (assoc-in-with-kv-index [:marks [:name nodes-sym] :encode :update :cursor :value] :pointer))))
+      (util/update-in-with-kv-index [:signals [:name fix-sym] :on] conj {:events (ovu/js "symbol:mouseout[!event.buttons], window:mouseup")
+                                                                         :update "false"})
+      (util/update-in-with-kv-index [:signals [:name fix-sym] :on] conj {:events (ovu/js "symbol:mouseover")
+                                                                         :update (ovu/js "%s || true" fix-sym)})
+      (util/update-in-with-kv-index [:signals [:name fix-sym] :on] conj {:events (ovu/js "[symbol:mousedown, window:mouseup] > window:mousemove!")
+                                                                         :update (ovu/js "xy()")
+                                                                         :force  true})
+      (util/update-in-with-kv-index [:marks [:name nodes-sym] :on] conj {:trigger fix-sym
+                                                                         :modify  selected-node-sym
+                                                                         :values  (ovu/js "%s === true ? {fx: %s.x, fy: %s.y} : {fx: %s[0], fy: %s[1]}"
+                                                                                    fix-sym
+                                                                                    selected-node-sym
+                                                                                    selected-node-sym
+                                                                                    fix-sym
+                                                                                    fix-sym)})
+      (util/update-in-with-kv-index [:marks [:name nodes-sym] :on] conj {:trigger (ovu/js "!%s" fix-sym)
+                                                                         :modify  selected-node-sym
+                                                                         :values  (ovu/js "{fx: null, fy: null}")})
+      (util/assoc-in-with-kv-index [:marks [:name nodes-sym] :encode :update :cursor :value] :pointer))))
 
 (defn add-nodes
   [vega sym nodes]
-  (let  [r (prop-sym sym :radius)]
+  (let  [r (ovu/prop-sym sym :radius)]
     (-> vega
-      (update :data conj {:name (data-sym sym) :values nodes})
+      (update :data conj {:name (ovu/data-sym sym) :values nodes})
       (update :marks conj {:name      sym
                            :type      :symbol
                            :zindex    1
-                           :from      {:data (data-sym sym)}
+                           :from      {:data (ovu/data-sym sym)}
                            :on        []
                            :encode    {:enter  {}
-                                       :update {:size {:signal (js "2 * %s * %s" r r)}}}
+                                       :update {:size {:signal (ovu/js "2 * %s * %s" r r)}}}
                            :transform []}))))
 
 (defn add-links
   [vega sym links]
   (-> vega
-    (update :data conj {:name (data-sym sym) :values links})
+    (update :data conj {:name (ovu/data-sym sym) :values links})
     (update :marks conj {:name        sym
                          :type        :path
-                         :from        {:data (data-sym sym)}
+                         :from        {:data (ovu/data-sym sym)}
                          :interactive false
                          :encode      {}
                          :transform   []})))
 
 (defn add-node-labels
   [vega nodes-sym label-prop]
-  (let [sym (prop-sym nodes-sym :labels)]
+  (let [sym (ovu/prop-sym nodes-sym :labels)]
     (-> vega
-      (assoc-in-with-kv-index [:marks [:name nodes-sym] :encode :enter :label :field] label-prop)
+      (util/assoc-in-with-kv-index [:marks [:name nodes-sym] :encode :enter :label :field] label-prop)
       (update :marks conj {:name   sym
                            :type   :text
                            :from   {:data nodes-sym}
@@ -348,7 +192,7 @@
   (-> {:width       width
        :height      height
        :description "A node-link diagram with force-directed layout, depicting character co-occurrence in the novel Les Misérables."}
-    vega-template
+    ovu/vega-template
     (add-nodes :nodes (:nodes data))
     (add-links :links (:links data))
     (add-force-sim :fix :restart :nodes :links {:iterations 300
