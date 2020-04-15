@@ -138,12 +138,12 @@
         #_(oz/view! :mode :vega))))
 
 (defn add-colors
-  [vega sym mark {:keys [data field type scheme]}]
+  [vega sym mark {:keys [data field type scheme] :or {scheme "category20c"}}]
   (-> vega
       (update :scales conj {:name   sym
-                              :type   type
-                              :domain {:data data :field field}
-                              :range  {:scheme scheme}})
+                            :type   type
+                            :domain {:data data :field field}
+                            :range  {:scheme scheme}})
       (update-in-with-kv-index [:marks [:name mark] :encode :enter :fill] assoc :scale sym :field field)))
 
 (comment
@@ -244,8 +244,8 @@
                                           :values  (format "%s === true ? {fx: node.x, fy: node.y} : {fx: %s[0], fy: %s[1]}" fix-sym fix-sym fix-sym)}
                                          {:trigger (format "!%s" fix-sym) :modify node-sym :values "{fx: null, fy: null}"}]
                              :encode    {:enter  (let [{:keys [stroke]} node-color]
-                                                   {:stroke     {:value stroke}
-                                                    :name       {:field "name"}})
+                                                   {:stroke {:value stroke}
+                                                    :name   {:field "name"}})
                                          :update {:size   {:signal (str "2 * " node-radius-sym " * " node-radius-sym)}
                                                   :cursor {:value :pointer}}}
                              :transform [{:type       :force
@@ -253,7 +253,6 @@
                                           :restart    {:signal restart-sym}
                                           :static     {:signal static-sym}
                                           :signal     :force}]})
-        (add-colors "node-color" :nodes {:type :ordinal :data node-data-sym :field (:key node-color) :scheme (:scheme node-color)})
         (update :marks conj {:type        :path
                              :from        {:data link-data-sym}
                              :interactive false
@@ -292,6 +291,10 @@
         :canvas {:width  width
                  :height height}
         :sim {:static? false})
+
+      (add-colors "node-color" :nodes {:type   :ordinal
+                                       :data   "node-data"
+                                       :field  "group"})
       (add-force :collide
                  {:radius   {:name "nodeRadius"
                              :init 10 :min 1 :max 50}
@@ -309,9 +312,9 @@
                  {:x {:init (/ width 2)}
                   :y {:init (/ height 2)}})
       (add-group-gravity "x-scale" :nodes {:axis     :x
-                                             :field    "group"
-                                             :data     "node-data"
-                                             :strength {:init 0.1 :min 0.1 :max 1 :step 0.1}})
+                                           :field    "group"
+                                           :data     "node-data"
+                                           :strength {:init 0.1 :min 0.1 :max 1 :step 0.1}})
       (add-group-gravity "y-scale" :nodes {:axis     :y
                                            :field    "group"
                                            :data     "node-data"
