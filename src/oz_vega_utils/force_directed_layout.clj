@@ -43,7 +43,7 @@
   "Add a force simulation for the nodes and lines.
   Provides restart, fix, and static syms.
   provide an init value for static to create a toggle for static vs dynamic simulation."
-  [vega nodes-mark links-mark {:keys [iterations static shape link-labels?]
+  [vega nodes-mark links-mark {:keys [iterations static shape]
                                :or   {iterations 300
                                       shape      :line
                                       static     {:init true}}}]
@@ -51,9 +51,8 @@
         restart-sym (ovu/prop-sym nodes-mark links-mark :restart)
         static-sym  (ovu/prop-sym nodes-mark links-mark :static)]
     (-> vega
-      (cond-> (boolean? (:init static)) (update :signals conj {:name  static-sym
-                                                               :value (:init static)
-                                                               :bind  {:input "checkbox"}}))
+      (ovu/validate-syms [fix-sym restart-sym static-sym] [nodes-mark links-mark])
+      (cond-> (boolean? (:init static)) (ovu/add-checkbox static-sym static))
       (update :signals conj {:name  fix-sym
                              :value false
                              :on    []})
