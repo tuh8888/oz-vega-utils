@@ -63,14 +63,16 @@
                                       shape      :line
                                       static     {:init true}}}]
   (let [fix-sym     (ovu/prop-sym nodes-mark links-mark :fix)
+        unfix-sym   (ovu/prop-sym nodes-mark links-mark :unfix)
         restart-sym (ovu/prop-sym nodes-mark links-mark :restart)
         static-sym  (ovu/prop-sym nodes-mark links-mark :static)]
     (-> vega
-      (ovu/validate-syms [fix-sym restart-sym] [nodes-mark links-mark])
+      (ovu/validate-syms [fix-sym restart-sym unfix-sym] [nodes-mark links-mark])
       (cond-> (boolean? (:init static)) (ovu/add-checkbox static-sym static))
       (update :signals conj {:name  fix-sym
                              :value false
                              :on    []})
+      (update :signals conj {:name unfix-sym})
       (update :signals conj {:name  restart-sym
                              :value false
                              :on    [{:events {:signal fix-sym}
@@ -96,17 +98,19 @@
   "Allow node dragging for nodes-mark."
   [vega nodes-mark links-mark]
   (let [fix-sym           (ovu/prop-sym nodes-mark links-mark :fix)
-        selected-node-sym (ovu/prop-sym nodes-mark links-mark :selected)]
+        selected-node-sym (ovu/prop-sym nodes-mark links-mark :selected)
+        unfix-sym         (ovu/prop-sym nodes-mark links-mark :unfix)]
     (-> vega
-      (ovu/validate-syms [selected-node-sym] [fix-sym nodes-mark links-mark])
+      (ovu/validate-syms [selected-node-sym] [fix-sym nodes-mark links-mark unfix-sym])
       (update :signals conj {:name  selected-node-sym
                              :value nil
-                             :on    [{:events (ovu/js "symbol:mouseover")
+                             :on    [{:events (ovu/js "symbol:mousedown")
                                       :update (ovu/js "%s === true ? item() : %s" fix-sym selected-node-sym)}]})
-
+      (util/update-in-with-kv-index [:signals [:name unfix-sym] :on] conj {:events (ovu/js "symbol:dblclick")
+                                                                           :update "datum"})
       (util/update-in-with-kv-index [:signals [:name fix-sym] :on] conj {:events (ovu/js "symbol:mouseout[!event.buttons], window:mouseup")
                                                                          :update "false"})
-      (util/update-in-with-kv-index [:signals [:name fix-sym] :on] conj {:events (ovu/js "symbol:mouseover")
+      (util/update-in-with-kv-index [:signals [:name fix-sym] :on] conj {:events (ovu/js "symbol:mousedown")
                                                                          :update (ovu/js "%s || true" fix-sym)})
       (util/update-in-with-kv-index [:signals [:name fix-sym] :on] conj {:events (ovu/js "[symbol:mousedown, window:mouseup] > window:mousemove!")
                                                                          :update (ovu/js "xy()")
@@ -119,7 +123,7 @@
                                                                                      selected-node-sym
                                                                                      fix-sym
                                                                                      fix-sym)})
-      (util/update-in-with-kv-index [:marks [:name nodes-mark] :on] conj {:trigger (ovu/js "!%s" fix-sym)
+      (util/update-in-with-kv-index [:marks [:name nodes-mark] :on] conj {:trigger (ovu/js "%s" unfix-sym)
                                                                           :modify  selected-node-sym
                                                                           :values  (ovu/js "{fx: null, fy: null}")})
       (util/assoc-in-with-kv-index [:marks [:name nodes-mark] :encode :update :cursor :value] :pointer))))
