@@ -16,6 +16,7 @@
            padding 0}}]
   {:$schema     "https://vega.github.io/schema/vega/v5.json"
    :description description
+   :syms        #{}
    :autosize    "none"
    :width       width
    :height      height
@@ -42,6 +43,18 @@
     (interpose "_")
     (apply str)
     keyword))
+
+(defn validate-syms
+  [vega new-syms required-syms]
+  (let [available-syms        (-> vega :syms set)
+        existing-new-syms     (filter available-syms new-syms)
+        missing-required-syms (remove available-syms required-syms)]
+    (if (or (seq existing-new-syms)
+          (seq missing-required-syms))
+      (throw (ex-info "JS symbol requirements not met" {:available        available-syms
+                                                        :needed           missing-required-syms
+                                                        :already-existing existing-new-syms}))
+      (update vega :syms into new-syms))))
 
 (defn add-colors
   [vega mark {:keys [data field type scheme stroke strokeWidth] :or {scheme "category20c"}}]

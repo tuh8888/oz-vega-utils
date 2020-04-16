@@ -124,7 +124,7 @@
 ** Add dragging.
    User input for the network itself.
 
-   #+BEGIN_SRC  clojure
+   #+BEGIN_SRC clojure
 (def draggable-layout (-> colored-layout
                         (fdl/add-node-dragging :nodes :links)))
 

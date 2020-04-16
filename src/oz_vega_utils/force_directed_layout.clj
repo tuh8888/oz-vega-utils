@@ -111,13 +111,15 @@
   "Add provided nodes to visualization.
   If an init value for radius is provided, the radius can be changed. Otherwise it will be static."
   [vega sym nodes & {:keys [radius]}]
-  (let  [r-sym (ovu/prop-sym sym :radius)]
+  (let  [r-sym    (ovu/prop-sym sym :radius)
+         data-sym (ovu/prop-sym sym :data)]
     (-> vega
-      (update :data conj {:name (ovu/prop-sym sym :data) :values nodes})
+      (ovu/validate-syms [sym data-sym r-sym] [])
+      (update :data conj {:name data-sym :values nodes})
       (update :marks conj {:name      sym
                            :type      :symbol
                            :zindex    1
-                           :from      {:data (ovu/prop-sym sym :data)}
+                           :from      {:data data-sym}
                            :on        []
                            :encode    {:enter  {:size radius}
                                        :update {:size (if (:init radius)
@@ -128,14 +130,17 @@
 (defn add-links
   "Add provided nodes to visualization."
   [vega sym links]
-  (-> vega
-    (update :data conj {:name (ovu/prop-sym sym :data) :values links})
-    (update :marks conj {:name        sym
-                         :type        :path
-                         :from        {:data (ovu/prop-sym sym :data)}
-                         :interactive false
-                         :encode      {:enter  {}
-                                       :update {}}})))
+  (let [data-sym (ovu/prop-sym sym :data)]
+    (-> vega
+      (ovu/validate-syms [sym data-sym] [])
+      (update :syms into [sym data-sym])
+      (update :data conj {:name data-sym :values links})
+      (update :marks conj {:name        sym
+                           :type        :path
+                           :from        {:data data-sym}
+                           :interactive false
+                           :encode      {:enter  {}
+                                         :update {}}}))))
 
 (defn cache-label-prop-in-mark-data
   [vega mark label-prop]
@@ -147,6 +152,7 @@
   [vega nodes-mark label-prop]
   (let [sym (ovu/prop-sym nodes-mark :labels)]
     (-> vega
+      (ovu/validate-syms [sym] [nodes-mark])
       (cache-label-prop-in-mark-data nodes-mark label-prop)
       (update :marks conj {:name   sym
                            :type   :text
