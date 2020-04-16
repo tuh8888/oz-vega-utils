@@ -18,7 +18,8 @@
    The data here has the form:
    - nodes
      - name
-     - id
+     - index
+     - group
    - links
      - source
      - target
