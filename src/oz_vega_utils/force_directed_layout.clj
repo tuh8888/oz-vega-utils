@@ -66,7 +66,7 @@
         restart-sym (ovu/prop-sym nodes-mark links-mark :restart)
         static-sym  (ovu/prop-sym nodes-mark links-mark :static)]
     (-> vega
-      (ovu/validate-syms [fix-sym restart-sym static-sym] [nodes-mark links-mark])
+      (ovu/validate-syms [fix-sym restart-sym] [nodes-mark links-mark])
       (cond-> (boolean? (:init static)) (ovu/add-checkbox static-sym static))
       (update :signals conj {:name  fix-sym
                              :value false
@@ -75,13 +75,15 @@
                              :value false
                              :on    [{:events {:signal fix-sym}
                                       :update (ovu/js "%s && %s.length" fix-sym fix-sym)}]})
+      #_(ovu/validate-syms [] [static-sym]) ;; I could either re-validate that static-sym was added or leave the if boolean? logic below. Same for radius in add-nodes fn
       (util/update-in-with-kv-index [:marks [:name nodes-mark] :transform] conj {:type       :force
                                                                                  :iterations iterations
                                                                                  :restart    {:signal restart-sym}
                                                                                  :static     (if (boolean? (:init static))
                                                                                                {:signal static-sym}
                                                                                                static)
-                                                                                 :signal     :force})
+                                                                                 :signal     :force
+                                                                                 :forces     []})
       (util/update-in-with-kv-index [:marks [:name links-mark] :transform] conj {:type    :linkpath
                                                                                  :require {:signal :force}
                                                                                  :shape   shape
@@ -129,7 +131,8 @@
   (let  [r-sym    (ovu/prop-sym sym :radius)
          data-sym (ovu/prop-sym sym :data)]
     (-> vega
-      (ovu/validate-syms [sym data-sym r-sym] [])
+      (ovu/validate-syms [sym data-sym] [])
+      (cond-> (:init radius) (ovu/add-range r-sym radius))
       (update :data conj {:name data-sym :values nodes})
       (update :marks conj {:name      sym
                            :type      :symbol
