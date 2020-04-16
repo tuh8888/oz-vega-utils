@@ -169,15 +169,16 @@
 (defn add-node-labels
   "Add labels to nodes in visualization. Uses label-prop as node label."
   [vega nodes-mark label-prop]
-  (let [sym (ovu/prop-sym nodes-mark :labels)]
+  (let [sym   (ovu/prop-sym nodes-mark :labels)
+        cache :cached_label]
     (-> vega
       (ovu/validate-syms [sym] [nodes-mark])
-      (cache-label-prop-in-mark-data nodes-mark label-prop :cached_label)
+      (cache-label-prop-in-mark-data nodes-mark label-prop cache)
       (update :marks conj {:name   sym
                            :type   :text
                            :from   {:data nodes-mark}
                            :zindex 2
-                           :encode {:enter  {:text  {:field :label}
+                           :encode {:enter  {:text  {:field cache}
                                              :align {:value :center}}
                                     :update {:x {:field :x}
                                              :y {:field :y}}}}))))
@@ -185,16 +186,17 @@
 (defn add-link-labels
   "Add labels to links in visualization. Uses label-prop as node label"
   [vega links-mark label-prop]
-  (let [sym (ovu/prop-sym links-mark :labels)]
+  (let [sym   (ovu/prop-sym links-mark :labels)
+        cache :cached_label]
     (-> vega
       (ovu/validate-syms [sym] [links-mark])
-      (cache-label-prop-in-mark-data links-mark label-prop :cached_label)
+      (cache-label-prop-in-mark-data links-mark label-prop cache)
       (update :signals conj {})
       (update :marks conj {:name      sym
                            :type      :text
                            :from      {:data links-mark}
                            :zindex    2
-                           :encode    {:enter  {:text  {:field :label}
+                           :encode    {:enter  {:text  {:field cache}
                                                 :align {:value :center}}
                                        :update {:sx {:field "datum.source.x"}
                                                 :sy {:field "datum.source.y"}
