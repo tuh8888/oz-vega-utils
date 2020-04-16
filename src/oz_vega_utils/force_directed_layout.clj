@@ -34,7 +34,8 @@
                          ["height" :left])
         focus-sym      (ovu/prop-sym mark field axis :focus)]
     (-> vega
-      (ovu/add-axis sym {:orient orient :data (ovu/prop-sym mark :data) :type :band :range range :field field})
+      (ovu/validate-syms [focus-sym] [mark])
+      (ovu/add-axis sym {:orient orient :data mark :type :band :range range :field field})
       (util/assoc-in-with-kv-index [:marks [:name mark] :encode :enter focus-sym] {:scale sym :field field :band 0.5})
       (add-force mark axis {axis      focus-sym
                             :strength strength}))))

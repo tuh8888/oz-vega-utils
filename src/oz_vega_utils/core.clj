@@ -84,13 +84,15 @@
 
 (defn add-axis
   [vega sym {:keys [orient data field type range]}]
-  (-> vega
-    (update :scales conj {:name   sym
-                          :type   type
-                          :domain {:data data :field field}
-                          :range  range})
-    (update :axes conj {:orient orient
-                        :scale  sym})))
+  (let [data-sym (prop-sym data :data)]
+    (-> vega
+      (validate-syms [sym] [data-sym])
+      (update :scales conj {:name   sym
+                            :type   type
+                            :domain {:data data :field field}
+                            :range  range})
+      (update :axes conj {:orient orient
+                          :scale  sym}))))
 
 (defn add-checkbox
   [vega sym {:keys [init]}]
