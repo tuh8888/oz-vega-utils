@@ -89,7 +89,7 @@
       (validate-syms [sym] [data-sym])
       (update :scales conj {:name   sym
                             :type   type
-                            :domain {:data data :field field}
+                            :domain {:data data-sym :field field}
                             :range  range})
       (update :axes conj {:orient orient
                           :scale  sym}))))
