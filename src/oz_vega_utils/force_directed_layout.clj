@@ -9,16 +9,28 @@
   force is the type the force
   props are additional properties for the force. If a map is provided, these will be passed to add-range."
   [vega mark force props]
-  (let [prop-sel-map (ovu/props->prop-sel-map force props)
-        vega (ovu/add-signals vega prop-sel-map)]
-    (-> vega
-      (ovu/validate-syms [] [mark])
-      (util/update-in-with-kv-index [:marks [:name mark] :transform [:type :force] :forces]
-        (fn [forces]
-          (->> prop-sel-map
-            (util/map-vals #(cond-> % (coll? %) (->> :name (hash-map :signal))))
-            (merge {:force force})
-            (conj forces)))))))
+  (let [path [:marks [:name mark] :transform [:type :force] :forces]]
+    (as-> vega vega
+      (ovu/validate-syms vega [] [mark])
+      (util/update-in-with-kv-index vega path conj {:force force})
+      (reduce (fn [vega [prop value]]
+                ;; If the prop's value is a coll, try to add a range for prop.
+                ;; If it exists, check if a signal was provided.
+                (println (util/get-in-with-kv-index vega path))
+                (let [sym  (or (:signal value) (ovu/prop-sym mark force prop))
+                      path (into path [[:force force] prop])]
+                  (do
+                    (println (util/get-in-with-kv-index vega path))
+                    (println path)
+                    vega)
+                  (if (coll? value)
+                      (-> (try (ovu/add-range vega sym value)
+                                 (catch Exception e
+                                   (if (:signal value) vega (throw e))))
+                          (util/assoc-in-with-kv-index (conj path :signal) sym))
+                      (util/assoc-in-with-kv-index vega path value))))
+        vega props))))
+
 (comment
   (-> {:signals []
        :marks   [{:name      :nodes

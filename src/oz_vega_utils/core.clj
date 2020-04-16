@@ -102,13 +102,21 @@
                            :value init
                            :bind  {:input "checkbox"}})))
 
-(defn range-selector
+(defn add-range
+  [vega sym {:keys [init min max step] :or {step 1 min 0 init 0}}]
+  (-> vega
+    (validate-syms [sym] [])
+    (update :signals conj {:name  sym
+                           :value init
+                           :bind  {:input "range" :min min :max max :step step}})))
+
+#_(defn range-selector
   [name {:keys [init min max step] :or {step 1}}]
   {:name  name
    :value init
    :bind  {:input "range" :min min :max max :step step}})
 
-(defn props->prop-sel-map
+#_(defn props->prop-sel-map
   [force props]
   (->> props
     (map  (fn [[property value]]
@@ -118,7 +126,7 @@
                         value)]))
     (into {})))
 
-(defn add-signals
+#_(defn add-signals
   [m prop-sel-map]
   (->> prop-sel-map
     (map second)
