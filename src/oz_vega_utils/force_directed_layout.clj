@@ -8,15 +8,17 @@
   mark is the name of a mark
   force is the type the force
   props are additional properties for the force. If a map is provided, these will be passed to add-range."
-  [m mark force props]
+  [vega mark force props]
   (let [prop-sel-map (ovu/props->prop-sel-map force props)
-        m            (ovu/add-signals m prop-sel-map)]
-    (util/update-in-with-kv-index m [:marks [:name mark] :transform [:type :force] :forces]
-      (fn [forces]
-        (->> prop-sel-map
-          (util/map-vals #(cond-> % (coll? %) (->> :name (hash-map :signal))))
-          (merge {:force force})
-          (conj forces))))))
+        vega (ovu/add-signals vega prop-sel-map)]
+    (-> vega
+      (ovu/validate-syms [] [mark])
+      (util/update-in-with-kv-index [:marks [:name mark] :transform [:type :force] :forces]
+        (fn [forces]
+          (->> prop-sel-map
+            (util/map-vals #(cond-> % (coll? %) (->> :name (hash-map :signal))))
+            (merge {:force force})
+            (conj forces)))))))
 (comment
   (-> {:signals []
        :marks   [{:name      :nodes
