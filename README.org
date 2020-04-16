@@ -1,6 +1,9 @@
 #+title: oz-vega-utils
 #+author: Harrison Pielke-Lombardo
 
+#+caption: Example force directed visualization
+[[file:resources/visualization.svg]]
+
 * About
   This package defines convenience functions for creating and manipulating [[https://vega.github.io/vega/examples/][Vega]] visualization specifications in Clojure. It is built on top of [[https://github.com/metasoarous/oz][metasoarous/oz]].
 
@@ -57,7 +60,7 @@
    : #'oz-vega-utils.force-directed-layout/width#'oz-vega-utils.force-directed-layout/height#'oz-vega-utils.force-directed-layout/canvas#'oz-vega-utils.force-directed-layout/vega
 
 ** Make force layout
-   Now we add our nodes and links form our data to the specification.
+   Now we add our nodes and links from our data to the specification.
 
    Nodes are added to the marks as =symbol= marks and the links are added as =path= marks.
 
@@ -145,15 +148,15 @@
                   (fdl/add-link-labels :links :value)
                   (ovu/add-colors :nodes_labels {:type   :static
                                                  :stroke "black"})
-                  (ovu/add-colors :links_labels {:type   :static
-                                                 :stroke "red"})))
+                  (ovu/add-colors :links_labels {:type        :static
+                                                 :strokeWidth 0.3
+                                                 :stroke      "#ccf"})))
 
 (oz/view! fl-labeled :mode :vega)
    #+END_SRC
 
    #+RESULTS:
    : #'oz-vega-utils.force-directed-layout/fl-labelednil
-
 
 ** Add gravity by group.
    Gravity can be added to separate nodes by some group field.
