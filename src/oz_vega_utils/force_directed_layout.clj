@@ -82,6 +82,7 @@
   (let [fix-sym           (ovu/prop-sym nodes-mark links-mark :fix)
         selected-node-sym (ovu/prop-sym nodes-mark links-mark :selected)]
     (-> vega
+      (ovu/validate-syms [selected-node-sym] [fix-sym nodes-mark links-mark])
       (update :signals conj {:name  selected-node-sym
                              :value nil
                              :on    [{:events (ovu/js "symbol:mouseover")
@@ -143,9 +144,10 @@
                                          :update {}}}))))
 
 (defn cache-label-prop-in-mark-data
-  [vega mark label-prop]
+  [vega mark label-prop cache]
   (-> vega
-    (util/assoc-in-with-kv-index [:marks [:name mark] :encode :enter :label :field] label-prop)))
+    (ovu/validate-syms [] [mark])
+    (util/assoc-in-with-kv-index [:marks [:name mark] :encode :enter cache :field] label-prop)))
 
 (defn add-node-labels
   "Add labels to nodes in visualization. Uses label-prop as node label."
@@ -153,7 +155,7 @@
   (let [sym (ovu/prop-sym nodes-mark :labels)]
     (-> vega
       (ovu/validate-syms [sym] [nodes-mark])
-      (cache-label-prop-in-mark-data nodes-mark label-prop)
+      (cache-label-prop-in-mark-data nodes-mark label-prop :cached_label)
       (update :marks conj {:name   sym
                            :type   :text
                            :from   {:data nodes-mark}
@@ -168,7 +170,8 @@
   [vega links-mark label-prop]
   (let [sym (ovu/prop-sym links-mark :labels)]
     (-> vega
-      (cache-label-prop-in-mark-data links-mark label-prop)
+      (ovu/validate-syms [sym] [links-mark])
+      (cache-label-prop-in-mark-data links-mark label-prop :cached_label)
       (update :signals conj {})
       (update :marks conj {:name      sym
                            :type      :text
