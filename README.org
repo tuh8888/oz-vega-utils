@@ -129,8 +129,7 @@
    User input for the network itself.
 
    #+BEGIN_SRC clojure
-(def draggable-layout (-> colored-layout
-                        (fdl/add-node-dragging :nodes :links (ovu/js "symbol:click"))))
+(def draggable-layout (fdl/add-node-dragging colored-layout :nodes :links))
 
 ;; TODO This doesn't work. Produces: unrecognized signal name: "nodes_radius"
 (oz/view! draggable-layout :mode :vega)
