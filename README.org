@@ -130,7 +130,7 @@
 
    #+BEGIN_SRC clojure
 (def draggable-layout (-> colored-layout
-                        (fdl/add-node-dragging :nodes :links)))
+                        (fdl/add-node-dragging :nodes :links (ovu/js "symbol:click"))))
 
 ;; TODO This doesn't work. Produces: unrecognized signal name: "nodes_radius"
 (oz/view! draggable-layout :mode :vega)

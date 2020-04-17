@@ -89,7 +89,7 @@
 
 (defn add-node-dragging
   "Allow node dragging for nodes-mark."
-  [vega nodes-mark links-mark]
+  [vega nodes-mark links-mark & [fix-until-fn]]
   (let [fix-sym           (ovu/prop-sym nodes-mark links-mark :fix)
         restart-sym       (ovu/prop-sym nodes-mark links-mark :restart)
         selected-node-sym (ovu/prop-sym nodes-mark links-mark :selected)
@@ -106,8 +106,8 @@
                              :value nil
                              :on    [{:events (ovu/js "symbol:mousedown")
                                       :update (ovu/js "%s === true ? item() : %s" fix-sym selected-node-sym)}]})
-      (util/update-in-with-kv-index [:signals [:name unfix-sym] :on] conj {:events (ovu/js "symbol:dblclick")
-                                                                           :update "datum"})
+      (util/update-in-with-kv-index [:signals [:name unfix-sym] :on] conj {:events (or fix-until-fn (ovu/js "!fix")) ;or (ovu/js "symbol:dblclick")
+                                                                           :update (ovu/js "%s || true" unfix-sym)})
       (util/update-in-with-kv-index [:signals [:name fix-sym] :on] conj {:events (ovu/js "symbol:mouseout[!event.buttons], window:mouseup")
                                                                          :update "false"})
       (util/update-in-with-kv-index [:signals [:name fix-sym] :on] conj {:events (ovu/js "symbol:mousedown")
@@ -123,7 +123,7 @@
                                                                                      selected-node-sym
                                                                                      fix-sym
                                                                                      fix-sym)})
-      (util/update-in-with-kv-index [:marks [:name nodes-mark] :on] conj {:trigger (ovu/js "%s" unfix-sym)
+      (util/update-in-with-kv-index [:marks [:name nodes-mark] :on] conj {:trigger unfix-sym
                                                                           :modify  selected-node-sym
                                                                           :values  (ovu/js "{fx: null, fy: null}")})
       (util/assoc-in-with-kv-index [:marks [:name nodes-mark] :encode :update :cursor :value] :pointer))))
