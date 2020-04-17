@@ -35,15 +35,6 @@
       vega-template
       #_(oz/view! :mode :vega))))
 
-(defn prop-sym
-  [sym prop & props]
-  (->> props
-    (into [sym prop])
-    (map name)
-    (interpose "_")
-    (apply str)
-    keyword))
-
 (defn validate-syms
   [vega new-syms required-syms]
   (let [available-syms        (-> vega :syms set)
@@ -56,9 +47,20 @@
                                                         :already-existing existing-new-syms}))
       (update vega :syms into new-syms))))
 
+(defn prop-sym
+  [vega prop & syms]
+  (assert (map? vega) "First argument must be a map.")
+  (validate-syms vega [] syms)
+  (->> prop
+    ((if (coll? prop) into conj) (vec syms))
+    (map name)
+    (interpose "_")
+    (apply str)
+    keyword))
+
 (defn add-colors
   [vega mark {:keys [data field type scheme stroke strokeWidth] :or {scheme "category20c"}}]
-  (let [sym (prop-sym mark :colors)]
+  (let [sym (prop-sym vega :colors mark)]
     (if (= :static type)
       (-> vega
         (util/assoc-in-with-kv-index [:marks [:name mark] :encode :update :stroke :value] stroke)
@@ -84,7 +86,7 @@
 
 (defn add-axis
   [vega sym {:keys [orient data field type range]}]
-  (let [data-sym (prop-sym data :data)]
+  (let [data-sym (prop-sym vega :data data)]
     (-> vega
       (validate-syms [sym] [data-sym])
       (update :scales conj {:name   sym
@@ -97,7 +99,7 @@
 (defn add-signal
   [vega sym required-syms & [m]]
   (-> vega
-    (validate-syms [sym] required-syms)
+    (validate-syms  [sym] required-syms)
     (update :signals conj (into {:name sym} m))))
 
 (defn add-checkbox
