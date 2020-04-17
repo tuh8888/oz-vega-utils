@@ -48,6 +48,8 @@
       (update vega :syms into new-syms))))
 
 (defn prop-sym
+  "Generate a JS compatible sym for a prop that is unique within the context of the other provided syms.
+  Provide a vector of props to bypass their validation."
   [vega prop & syms]
   (assert (map? vega) "First argument must be a map.")
   (validate-syms vega [] syms)
@@ -59,6 +61,9 @@
     keyword))
 
 (defn add-colors
+  "Add colors to the specified mark.
+
+  Provides: sym"
   [vega mark {:keys [data field type scheme stroke strokeWidth] :or {scheme "category20c"}}]
   (let [sym (prop-sym vega :colors mark)]
     (if (= :static type)
@@ -85,6 +90,9 @@
       #_(oz/view! :mode :vega))))
 
 (defn add-axis
+  "Add a scale-axis using the data and orientation provided.
+
+  Provides: sym"
   [vega sym {:keys [orient data field type range]}]
   (let [data-sym (prop-sym vega :data data)]
     (-> vega
@@ -97,17 +105,26 @@
                           :scale  sym}))))
 
 (defn add-signal
+  "Add a signal.
+
+  Provides: sym"
   [vega sym required-syms & [m]]
   (-> vega
     (validate-syms  [sym] required-syms)
     (update :signals conj (into {:name sym} m))))
 
 (defn add-checkbox
+  "Add a checkbox input signal.
+
+  Provides: sym"
   [vega sym {:keys [init]}]
   (add-signal vega sym [] {:value init
                            :bind  {:input "checkbox"}}))
 
 (defn add-range
+  "Add a range input signal.
+
+  Provides: sym."
   [vega sym {:keys [init min max step] :or {step 1 min 0 init 0}}]
   (add-signal vega sym [] {:value init
                            :bind  {:input "range"

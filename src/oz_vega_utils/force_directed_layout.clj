@@ -7,7 +7,9 @@
   "Add a force to the layout of data displayed in mark.
   mark is the name of a mark
   force is the type the force
-  props are additional properties for the force. If a map is provided, these will be passed to add-range."
+  props are additional properties for the force. If a map is provided, these will be passed to add-range.
+
+  Provides: force-sym"
   [vega mark force props]
   (let [path      [:marks [:name mark] :transform [:type :force] :forces]
         force-sym (ovu/prop-sym vega force mark)]
@@ -37,7 +39,9 @@
     ((juxt :signals #(-> % :marks first :transform first :forces first)))))
 
 (defn add-group-gravity
-  "Add gravity according to the field for the mark."
+  "Add gravity according to the field for the mark.
+
+  Provides: focus-sym and axis-sym"
   [vega mark {:keys [field strength axis]}]
   (let [sym            (ovu/prop-sym vega [:gravity field axis] mark)
         [range orient] (if (= :x axis)
@@ -54,7 +58,9 @@
 (defn add-force-sim
   "Add a force simulation for the nodes and lines.
   Provides restart and static syms.
-  provide an init value for static to create a toggle for static vs dynamic simulation."
+  provide an init value for static to create a toggle for static vs dynamic simulation.
+
+  Provides: restart-sym and static-sym"
   [vega nodes-mark links-mark {:keys [iterations static shape]
                                :or   {iterations 300
                                       shape      :line
@@ -85,7 +91,9 @@
                                                                                  :targetY "datum.target.y"}))))
 
 (defn add-node-dragging
-  "Allow node dragging for nodes-mark."
+  "Allow node dragging for nodes-mark.
+
+  Provides: fix-sym, unfix-sym, and selected-node-sym"
   [vega nodes-mark links-mark & [fix-until-fn]]
   (let [fix-sym           (ovu/prop-sym vega :fix nodes-mark links-mark)
         restart-sym       (ovu/prop-sym vega :restart nodes-mark links-mark)
@@ -94,11 +102,11 @@
     (-> vega
       (ovu/validate-syms [] [nodes-mark restart-sym links-mark])
       (ovu/add-signal fix-sym [] {:value false})
+      (ovu/add-signal unfix-sym [])
       (util/update-in-with-kv-index [:signals [:name restart-sym] :on] conj {:events {:signal fix-sym}
                                                                              :update (ovu/js "%s && %s.length" fix-sym fix-sym)})
       (util/update-in-with-kv-index [:signals [:name restart-sym] :on] conj {:events {:signal unfix-sym}
                                                                              :update (ovu/js "!%s.length && %s.length" fix-sym unfix-sym)})
-      (ovu/add-signal unfix-sym [])
       (ovu/add-signal selected-node-sym [] {:value nil
                                             :on    [{:events (ovu/js "symbol:mousedown")
                                                      :update (ovu/js "%s === true ? item() : %s" fix-sym selected-node-sym)}]})
@@ -130,14 +138,16 @@
 
 (defn add-nodes
   "Add provided nodes to visualization.
-  If an init value for radius is provided, the radius can be changed. Otherwise it will be static."
+  If an init value for radius is provided, the radius can be changed. Otherwise it will be static.
+
+  Provides: sym, data-sym, and radius-sym"
   [vega sym nodes & {:keys [radius]}]
-  (let  [vega     (ovu/validate-syms vega [sym] [])
-         r-sym    (ovu/prop-sym vega :radius sym)
-         data-sym (ovu/prop-sym vega :data sym)]
+  (let  [vega       (ovu/validate-syms vega [sym] [])
+         radius-sym (ovu/prop-sym vega :radius sym)
+         data-sym   (ovu/prop-sym vega :data sym)]
     (-> vega
       (ovu/validate-syms [data-sym] [])
-      (cond-> (:init radius) (ovu/add-range r-sym radius))
+      (cond-> (:init radius) (ovu/add-range radius-sym radius))
       (update :data conj {:name data-sym :values nodes})
       (update :marks conj {:name      sym
                            :type      :symbol
@@ -146,12 +156,14 @@
                            :on        []
                            :encode    {:enter  {:size radius}
                                        :update {:size (if (:init radius)
-                                                        {:signal (ovu/js "2 * %s * %s" r-sym r-sym)}
+                                                        {:signal (ovu/js "2 * %s * %s" radius-sym radius-sym)}
                                                         radius)}}
                            :transform []}))))
 
 (defn add-links
-  "Add provided nodes to visualization."
+  "Add provided nodes to visualization.
+
+  Provides: sym and data-sym"
   [vega sym links]
   (let [vega     (ovu/validate-syms vega [sym] [])
         data-sym (ovu/prop-sym vega :data sym)]
@@ -173,7 +185,9 @@
     (util/assoc-in-with-kv-index [:marks [:name mark] :encode :enter cache :field] label-prop)))
 
 (defn add-node-labels
-  "Add labels to nodes in visualization. Uses label-prop as node label."
+  "Add labels to nodes in visualization. Uses label-prop as node label.
+
+  Provides: sym"
   [vega nodes-mark label-prop]
   (let [sym   (ovu/prop-sym vega :labels nodes-mark)
         cache :cached_label]
@@ -190,7 +204,9 @@
                                              :y {:field :y}}}}))))
 
 (defn add-link-labels
-  "Add labels to links in visualization. Uses label-prop as node label"
+  "Add labels to links in visualization. Uses label-prop as node label
+
+  Provides: sym"
   [vega links-mark label-prop]
   (let [sym   (ovu/prop-sym vega :labels links-mark)
         cache :cached_label]
