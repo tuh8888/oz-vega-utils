@@ -94,42 +94,21 @@
       (update :axes conj {:orient orient
                           :scale  sym}))))
 
+(defn add-signal
+  [vega sym required-syms & [m]]
+  (-> vega
+    (validate-syms [sym] required-syms)
+    (update :signals conj (into {:name sym} m))))
+
 (defn add-checkbox
   [vega sym {:keys [init]}]
-  (-> vega
-    (validate-syms [sym] [])
-    (update :signals conj {:name  sym
-                           :value init
-                           :bind  {:input "checkbox"}})))
+  (add-signal vega sym [] {:value init
+                           :bind  {:input "checkbox"}}))
 
 (defn add-range
   [vega sym {:keys [init min max step] :or {step 1 min 0 init 0}}]
-  (-> vega
-    (validate-syms [sym] [])
-    (update :signals conj {:name  sym
-                           :value init
-                           :bind  {:input "range" :min min :max max :step step}})))
-
-#_(defn range-selector
-  [name {:keys [init min max step] :or {step 1}}]
-  {:name  name
-   :value init
-   :bind  {:input "range" :min min :max max :step step}})
-
-#_(defn props->prop-sel-map
-  [force props]
-  (->> props
-    (map  (fn [[property value]]
-            [property (if (coll? value)
-                        (let [name (or (:name value) (prop-sym force property))]
-                          (range-selector name value))
-                        value)]))
-    (into {})))
-
-#_(defn add-signals
-  [m prop-sel-map]
-  (->> prop-sel-map
-    (map second)
-    (reduce (fn [m sel]
-              (cond-> m (coll? sel) (update :signals conj sel)))
-      m)))
+  (add-signal vega sym [] {:value init
+                           :bind  {:input "range"
+                                   :min   min
+                                   :max   max
+                                   :step  step}}))

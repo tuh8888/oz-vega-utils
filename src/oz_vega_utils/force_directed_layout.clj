@@ -95,19 +95,16 @@
         selected-node-sym (ovu/prop-sym nodes-mark links-mark :selected)
         unfix-sym         (ovu/prop-sym nodes-mark links-mark :unfix)]
     (-> vega
-      (ovu/validate-syms [fix-sym unfix-sym selected-node-sym] [nodes-mark restart-sym links-mark])
-      (update :signals conj {:name  fix-sym
-                             :value false
-                             :on    []})
+      (ovu/validate-syms [] [nodes-mark restart-sym links-mark])
+      (ovu/add-signal fix-sym [] {:value false})
       (util/update-in-with-kv-index [:signals [:name restart-sym] :on] conj {:events {:signal fix-sym}
                                                                              :update (ovu/js "%s && %s.length" fix-sym fix-sym)})
       (util/update-in-with-kv-index [:signals [:name restart-sym] :on] conj {:events {:signal unfix-sym}
                                                                              :update (ovu/js "!%s.length && %s.length" fix-sym unfix-sym)})
-      (update :signals conj {:name unfix-sym})
-      (update :signals conj {:name  selected-node-sym
-                             :value nil
-                             :on    [{:events (ovu/js "symbol:mousedown")
-                                      :update (ovu/js "%s === true ? item() : %s" fix-sym selected-node-sym)}]})
+      (ovu/add-signal unfix-sym [])
+      (ovu/add-signal selected-node-sym {:value nil
+                                         :on    [{:events (ovu/js "symbol:mousedown")
+                                                  :update (ovu/js "%s === true ? item() : %s" fix-sym selected-node-sym)}]})
       (util/update-in-with-kv-index [:signals [:name unfix-sym] :on] conj {:events (ovu/js "symbol:mousedown")
                                                                            :update (ovu/js "true")})
       (util/update-in-with-kv-index [:signals [:name unfix-sym] :on] conj {:events (ovu/js "symbol:mousemove")
