@@ -56,27 +56,20 @@
 
 (defn add-force-sim
   "Add a force simulation for the nodes and lines.
-  Provides restart, fix, and static syms.
+  Provides restart and static syms.
   provide an init value for static to create a toggle for static vs dynamic simulation."
   [vega nodes-mark links-mark {:keys [iterations static shape]
                                :or   {iterations 300
                                       shape      :line
                                       static     {:init true}}}]
-  (let [fix-sym     (ovu/prop-sym nodes-mark links-mark :fix)
-        unfix-sym   (ovu/prop-sym nodes-mark links-mark :unfix)
-        restart-sym (ovu/prop-sym nodes-mark links-mark :restart)
+  (let [restart-sym (ovu/prop-sym nodes-mark links-mark :restart)
         static-sym  (ovu/prop-sym nodes-mark links-mark :static)]
     (-> vega
-      (ovu/validate-syms [fix-sym restart-sym unfix-sym] [nodes-mark links-mark])
+      (ovu/validate-syms [restart-sym] [nodes-mark links-mark])
       (cond-> (boolean? (:init static)) (ovu/add-checkbox static-sym static))
-      (update :signals conj {:name  fix-sym
-                             :value false
-                             :on    []})
-      (update :signals conj {:name unfix-sym})
       (update :signals conj {:name  restart-sym
                              :value false
-                             :on    [{:events {:signal fix-sym}
-                                      :update (ovu/js "%s && %s.length" fix-sym fix-sym)}]})
+                             :on    []})
       #_(ovu/validate-syms [] [static-sym]) ;; I could either re-validate that static-sym was added or leave the if boolean? logic below. Same for radius in add-nodes fn
       (util/update-in-with-kv-index [:marks [:name nodes-mark] :transform] conj {:type       :force
                                                                                  :iterations iterations
@@ -98,10 +91,17 @@
   "Allow node dragging for nodes-mark."
   [vega nodes-mark links-mark]
   (let [fix-sym           (ovu/prop-sym nodes-mark links-mark :fix)
+        restart-sym       (ovu/prop-sym nodes-mark links-mark :restart)
         selected-node-sym (ovu/prop-sym nodes-mark links-mark :selected)
         unfix-sym         (ovu/prop-sym nodes-mark links-mark :unfix)]
     (-> vega
-      (ovu/validate-syms [selected-node-sym] [fix-sym nodes-mark links-mark unfix-sym])
+      (ovu/validate-syms [fix-sym unfix-sym selected-node-sym] [nodes-mark restart-sym links-mark])
+      (update :signals conj {:name  fix-sym
+                             :value false
+                             :on    []})
+      (util/update-in-with-kv-index [:signals [:name restart-sym] :on] conj {:events {:signal fix-sym}
+                                                                             :update (ovu/js "%s && %s.length" fix-sym fix-sym)})
+      (update :signals conj {:name unfix-sym})
       (update :signals conj {:name  selected-node-sym
                              :value nil
                              :on    [{:events (ovu/js "symbol:mousedown")
