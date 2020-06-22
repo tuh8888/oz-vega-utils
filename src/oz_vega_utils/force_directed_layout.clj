@@ -226,7 +226,7 @@
                                                 :ty {:field "datum.target.y"}}}
                            :transform [{:type :formula
                                         :as   :x
-                                        :expr "((datum.sx + datum.tx) / 2)"}
+                                        :expr "(datum.sx + datum.tx) / 2"}
                                        {:type :formula
                                         :as   :y
                                         :expr "(datum.sy + datum.ty) / 2"}]}))))
