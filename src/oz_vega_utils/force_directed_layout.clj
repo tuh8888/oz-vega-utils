@@ -230,3 +230,41 @@
                                        {:type :formula
                                         :as   :y
                                         :expr "(datum.sy + datum.ty) / 2"}]}))))
+
+(defn add-link-directions
+  [vega links-mark & {:keys [centered? extra-rad] }]
+  (let [sym (ovu/prop-sym vega :directions links-mark)]
+    (-> vega
+      (ovu/validate-syms [sym] [links-mark])
+      (update :marks conj {:name      sym
+                           :type      :symbol
+                           :from      {:data links-mark}
+                           :zindex    2
+                           :encode    {:enter  {:x     0
+                                                :y     0
+                                                :shape {:value :arrow}}
+                                       :update {:sx {:field "datum.source.x"}
+                                                :sy {:field "datum.source.y"}
+                                                :tx {:field "datum.target.x"}
+                                                :ty {:field "datum.target.y"}
+                                                :x  {:field "datum.target.x"}
+                                                :y  {:field "datum.target.y"}
+                                                :r  {:signal :nodes_radius}
+                                                }}
+                           :transform (let [
+                                            diff-x      "(datum.tx - datum.sx)"
+                                            diff-y      "(datum.ty - datum.sy)"
+                                            path-length (str "sqrt(" diff-x "*" diff-x "+" diff-y "*" diff-y ")") ]
+                                        [{:type :formula
+                                          :as   :x
+                                          :expr (let [dist-x   "(datum.sx + datum.tx) / 2"
+                                                      offset-x (str diff-x "/" path-length "* (datum.r +" extra-rad ")")]
+                                                  (if centered? dist-x (str "datum.tx -" offset-x)))}
+                                         {:type :formula
+                                          :as   :y
+                                          :expr (let [dist-y   "(datum.sy + datum.ty) / 2"
+                                                      offset-y (str diff-y "/" path-length "* (datum.r +" extra-rad ")")]
+                                                  (if centered? dist-y (str "datum.ty -" offset-y)))}
+                                         {:type :formula
+                                          :as   :angle
+                                          :expr "270 + 180/PI * atan2((datum.sy - datum.ty),(datum.sx - datum.tx))"}])}))))
