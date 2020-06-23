@@ -42,7 +42,8 @@
   "Add gravity according to the field for the mark.
 
   Provides: focus-sym and axis-sym"
-  [vega mark {:keys [field strength axis]}]
+  [vega mark {:keys [field strength axis]
+              :or   {type :band}}]
   (let [sym            (ovu/prop-sym vega [:gravity field axis] mark)
         [range orient] (if (= :x axis)
                          ["width" :bottom]
@@ -50,7 +51,7 @@
         focus-sym      (ovu/prop-sym vega [:focus field axis] mark)]
     (-> vega
       (ovu/validate-syms [focus-sym] [mark])
-      (ovu/add-axis sym {:orient orient :data mark :type :band :range range :field field})
+      (ovu/add-axis sym {:orient orient :data mark :type type :range range :field field})
       (util/assoc-in-with-kv-index [:marks [:name mark] :encode :enter focus-sym] {:scale sym :field field :band 0.5})
       (add-force mark axis {axis      focus-sym
                             :strength strength}))))
