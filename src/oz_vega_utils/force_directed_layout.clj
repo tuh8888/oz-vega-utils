@@ -247,24 +247,30 @@
                                                 :sy {:field "datum.source.y"}
                                                 :tx {:field "datum.target.x"}
                                                 :ty {:field "datum.target.y"}
-                                                :x  {:field "datum.target.x"}
-                                                :y  {:field "datum.target.y"}
                                                 :r  {:signal :nodes_radius}
                                                 }}
                            :transform (let [
-                                            diff-x      "(datum.tx - datum.sx)"
-                                            diff-y      "(datum.ty - datum.sy)"
-                                            path-length (str "sqrt(" diff-x "*" diff-x "+" diff-y "*" diff-y ")") ]
+                                            offset-formatter "%s - (%s * datum.r) / %s"
+                                            diff-x           "(datum.tx - datum.sx)"
+                                            diff-y           "(datum.ty - datum.sy)"
+                                            path-length      (format "sqrt(%s * %s + %s * %s)" diff-x diff-x diff-y diff-y)
+                                            offset-x         (format offset-formatter
+                                                               "datum.tx"
+                                                               diff-x
+                                                               path-length)
+                                            offset-y         (format offset-formatter
+                                                               "datum.ty"
+                                                               diff-y
+                                                               path-length)
+                                            ]
                                         [{:type :formula
                                           :as   :x
-                                          :expr (let [dist-x   "(datum.sx + datum.tx) / 2"
-                                                      offset-x (str diff-x "/" path-length "* (datum.r +" extra-rad ")")]
-                                                  (if centered? dist-x (str "datum.tx -" offset-x)))}
+                                          :expr (let [dist-x "(datum.sx + datum.tx) / 2"]
+                                                  (if centered? dist-x offset-x))}
                                          {:type :formula
                                           :as   :y
-                                          :expr (let [dist-y   "(datum.sy + datum.ty) / 2"
-                                                      offset-y (str diff-y "/" path-length "* (datum.r +" extra-rad ")")]
-                                                  (if centered? dist-y (str "datum.ty -" offset-y)))}
+                                          :expr (let [dist-y "(datum.sy + datum.ty) / 2"]
+                                                  (if centered? dist-y offset-y))}
                                          {:type :formula
                                           :as   :angle
-                                          :expr "270 + 180/PI * atan2((datum.sy - datum.ty),(datum.sx - datum.tx))"}])}))))
+                                          :expr (format "%d + %d/PI * atan2(%s, %s)" 90 180 diff-y diff-x)}])}))))
