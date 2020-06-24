@@ -216,6 +216,34 @@
   [plus axis]
   (format "%d + (datum.s%s + datum.t%s)/2" plus axis axis))
 
+(defn add-formula-transform
+  [vega sym prop expr]
+  (-> vega
+    (ovu/validate-syms [] [sym])
+    (util/update-in-with-kv-index [:marks [:name sym] :transform] conj
+      {:type :formula :as prop :expr expr})))
+
+(defn set-link-marker-position
+  [vega sym x-expr y-expr angle-expr]
+  (let [f "%s * %s"]
+    (-> vega
+      (ovu/validate-syms [] [sym])
+      (util/update-in-with-kv-index [:marks [:name sym] :encode :update] assoc
+        :sx {:field "datum.source.x"}
+        :sy {:field "datum.source.y"}
+        :tx {:field "datum.target.x"}
+        :ty {:field "datum.target.y"})
+      (add-formula-transform sym :x x-expr)
+      (add-formula-transform sym :y y-expr)
+      (add-formula-transform sym :angle angle-expr))))
+
+(defn polar-coord
+  [axis r-f normal?]
+  (format "%s(%s) * %s" (case axis
+                          "x" (if normal? "sin" "cos")
+                          "y" (if normal? "-cos" "sin"))
+    phi (r-f axis)))
+
 (defn add-link-labels
   "Add labels to links in visualization. Uses label-prop as node label
 
@@ -228,64 +256,40 @@
       (ovu/validate-syms [sym] [links-mark])
       (cache-label-prop-in-mark-data links-mark label-prop cache)
       (update :signals conj {})
-      (update :marks conj {:name      sym
-                           :type      :text
-                           :from      {:data links-mark}
-                           :zindex    2
-                           :encode    {:enter  {:text  {:field cache}
-                                                :align {:value :center}}
-                                       :update {:sx {:field "datum.source.x"}
-                                                :sy {:field "datum.source.y"}
-                                                :tx {:field "datum.target.x"}
-                                                :ty {:field "datum.target.y"}}}
-                           :transform (let [offset-formatter "%s * %s"]
-                                        [{:type :formula
-                                          :as   :x
-                                          :expr (format offset-formatter
-                                                  (format "sin(%s)" phi)
-                                                  (midway-plus extra-height "x"))}
-                                         {:type :formula
-                                          :as   :y
-                                          :expr (format (str "-" offset-formatter)
-                                                  (format "cos(%s)" phi)
-                                                  (midway-plus extra-height "y"))}
-                                         {:type :formula
-                                          :as   :angle
-                                          :expr (set-angle 180)}])}))))
+      (update :marks conj {:name   sym
+                           :type   :text
+                           :from   {:data links-mark}
+                           :zindex 2
+                           :encode {:enter {:text  {:field cache}
+                                            :align {:value :center}}}})
+      (set-link-marker-position sym
+        (polar-coord "x" (partial midway-plus extra-height) true)
+        (polar-coord "y" (partial midway-plus extra-height) true)
+        (set-angle 0)))))
 
 (defn add-link-directions
   [vega links-mark & {:keys [centered? extra-rad] }]
-  (let [sym (ovu/prop-sym vega :directions links-mark)]
+  (let [sym   (ovu/prop-sym vega :directions links-mark)
+        r-off (fn [axis]
+                (if centered?
+                  (midway-plus extra-rad axis)
+                  (let [arrow-rad   "sqrt(datum.size)/2"
+                        path-length (format "sqrt(%s * %s + %s * %s)"
+                                      diff-x diff-x diff-y diff-y)]
+                    (format "(%s - (%s + %d + %s)) + datum.s%s"
+                      path-length "datum.r"
+                      extra-rad arrow-rad axis))))]
     (-> vega
       (ovu/validate-syms [sym] [links-mark])
-      (update :marks conj {:name      sym
-                           :type      :symbol
-                           :from      {:data links-mark}
-                           :zindex    2
-                           :encode    {:enter  {:x     0
-                                                :y     0
-                                                :shape {:value :arrow}}
-                                       :update {:sx {:field "datum.source.x"}
-                                                :sy {:field "datum.source.y"}
-                                                :tx {:field "datum.target.x"}
-                                                :ty {:field "datum.target.y"}
-                                                :r  {:signal :nodes_radius}
-                                                }}
-                           :transform (let [r-off (fn [axis]
-                                                    (if centered?
-                                                      (midway-plus extra-rad axis)
-                                                      (let [arrow-rad   "sqrt(datum.size)/2"
-                                                            path-length (format "sqrt(%s * %s + %s * %s)" diff-x diff-x diff-y diff-y)]
-                                                        (format "(%s - (%s + %d + %s)) + datum.s%s"
-                                                          path-length "datum.r"
-                                                          extra-rad arrow-rad axis))))
-                                            f     "%s * %s"]
-                                        [{:type :formula
-                                          :as   :x
-                                          :expr (format f (format "cos(%s)" phi) (r-off "x"))}
-                                         {:type :formula
-                                          :as   :y
-                                          :expr (format f (format "sin(%s)" phi) (r-off "y"))}
-                                         {:type :formula
-                                          :as   :angle
-                                          :expr (set-angle 90)}])}))))
+      (update :marks conj {:name   sym
+                           :type   :symbol
+                           :from   {:data links-mark}
+                           :zindex 2
+                           :encode {:enter  {:x     0
+                                             :y     0
+                                             :shape {:value :arrow}}
+                                    :update {:r {:signal :nodes_radius}}}})
+      (set-link-marker-position sym
+        (polar-coord "x" r-off false)
+        (polar-coord "y" r-off false)
+        (set-angle 90)))))
