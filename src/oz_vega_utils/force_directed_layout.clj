@@ -268,7 +268,7 @@
       (set-link-marker-position sym
         (polar-coord "x" (partial midway-plus "datum.extra_height") true)
         (polar-coord "y" (partial midway-plus "datum.extra_height") true)
-        (set-angle 0)))))
+        (format "(%s) < -90 || (%s) > 90 ? (%s) - 180 : (%s)" (set-angle 0) (set-angle 0) (set-angle 0) (set-angle 0))))))
 
 (defn add-link-directions
   [vega links-mark nodes-mark & {:keys [centered? extra-radius] }]
