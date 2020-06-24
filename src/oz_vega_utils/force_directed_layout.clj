@@ -214,7 +214,7 @@
 
 (defn midway-plus
   [plus axis]
-  (format "%d + (datum.s%s + datum.t%s)/2" plus axis axis))
+  (format "%s + (datum.s%s + datum.t%s)/2" plus axis axis))
 
 (defn add-formula-transform
   [vega sym prop expr]
@@ -248,39 +248,46 @@
   "Add labels to links in visualization. Uses label-prop as node label
 
   Provides: sym"
-  [vega links-mark label-prop & {:keys [extra-height]
-                                 :or   {extra-height 0}}]
-  (let [sym   (ovu/prop-sym vega :labels links-mark)
-        cache :cached_label]
+  [vega links-mark label-prop & {:keys [extra-height]}]
+  (let [sym              (ovu/prop-sym vega :labels links-mark)
+        vega             (ovu/validate-syms vega [sym] [])
+        extra-height-sym (ovu/prop-sym vega :extra_height sym)
+        cache            :cached_label]
     (-> vega
-      (ovu/validate-syms [sym] [links-mark])
+      (ovu/validate-syms [] [links-mark])
+      (ovu/add-range extra-height-sym extra-height)
       (cache-label-prop-in-mark-data links-mark label-prop cache)
       (update :signals conj {})
       (update :marks conj {:name   sym
                            :type   :text
                            :from   {:data links-mark}
                            :zindex 2
-                           :encode {:enter {:text  {:field cache}
-                                            :align {:value :center}}}})
+                           :encode {:enter  {:text  {:field cache}
+                                             :align {:value :center}}
+                                    :update {:extra_height {:signal extra-height-sym}}}})
       (set-link-marker-position sym
-        (polar-coord "x" (partial midway-plus extra-height) true)
-        (polar-coord "y" (partial midway-plus extra-height) true)
+        (polar-coord "x" (partial midway-plus "datum.extra_height") true)
+        (polar-coord "y" (partial midway-plus "datum.extra_height") true)
         (set-angle 0)))))
 
 (defn add-link-directions
-  [vega links-mark & {:keys [centered? extra-rad] }]
-  (let [sym   (ovu/prop-sym vega :directions links-mark)
-        r-off (fn [axis]
-                (if centered?
-                  (midway-plus extra-rad axis)
-                  (let [arrow-rad   "sqrt(datum.size)/2"
-                        path-length (format "sqrt(%s * %s + %s * %s)"
-                                      diff-x diff-x diff-y diff-y)]
-                    (format "(%s - (%s + %d + %s)) + datum.s%s"
-                      path-length "datum.r"
-                      extra-rad arrow-rad axis))))]
+  [vega links-mark nodes-mark & {:keys [centered? extra-radius] }]
+  (let [sym              (ovu/prop-sym vega :directions links-mark)
+        vega             (ovu/validate-syms vega [sym] [])
+        extra-radius-sym (ovu/prop-sym vega :extra_radius sym)
+        rad-sym          (ovu/prop-sym vega :radius nodes-mark)
+        r-off            (fn [axis]
+                           (if centered?
+                             (midway-plus "datum.extra_rad" axis)
+                             (let [arrow-rad   "sqrt(datum.size)/2"
+                                   path-length (format "sqrt(%s * %s + %s * %s)"
+                                                 diff-x diff-x diff-y diff-y)]
+                               (format "(%s - (%s + %s + %s)) + datum.s%s"
+                                 path-length "datum.r"
+                                 "datum.extra_rad" arrow-rad axis))))]
     (-> vega
-      (ovu/validate-syms [sym] [links-mark])
+      (ovu/validate-syms [] [rad-sym links-mark])
+      (ovu/add-range extra-radius-sym  extra-radius)
       (update :marks conj {:name   sym
                            :type   :symbol
                            :from   {:data links-mark}
@@ -288,7 +295,8 @@
                            :encode {:enter  {:x     0
                                              :y     0
                                              :shape {:value :arrow}}
-                                    :update {:r {:signal :nodes_radius}}}})
+                                    :update {:extra_rad {:signal extra-radius-sym }
+                                             :r         {:signal rad-sym}}}})
       (set-link-marker-position sym
         (polar-coord "x" r-off false)
         (polar-coord "y" r-off false)
