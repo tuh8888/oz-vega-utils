@@ -64,13 +64,12 @@
   "Add colors to the specified mark.
 
   Provides: sym"
-  [vega mark {:keys [data field type scheme stroke fill strokeWidth] :or {scheme "category20c"}}]
+  [vega mark {:keys [params data field type  scheme stroke] :or {scheme "category20c"}}]
   (let [sym (prop-sym vega :colors mark)]
     (if (= :static type)
-      (-> vega
-        (util/assoc-in-with-kv-index [:marks [:name mark] :encode :update :fill :value] fill)
-        (util/assoc-in-with-kv-index [:marks [:name mark] :encode :update :stroke :value] stroke)
-        (util/assoc-in-with-kv-index [:marks [:name mark] :encode :update :strokeWidth :value] strokeWidth))
+      (reduce (fn [vega [k v]]
+                (util/assoc-in-with-kv-index vega [:marks [:name mark] :encode :update k :value] v))
+        vega params)
       (-> vega
         (update :scales conj {:name   sym
                               :type   type
