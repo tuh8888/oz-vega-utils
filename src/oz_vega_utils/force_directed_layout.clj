@@ -157,7 +157,7 @@
                            :on        []
                            :encode    {:enter  {:size radius}
                                        :update {:size (if (:init radius)
-                                                        {:signal (ovu/js "2 * %s * %s" radius-sym radius-sym)}
+                                                        {:signal (ovu/js "4 * %s * %s" radius-sym radius-sym)}
                                                         radius)}}
                            :transform []}))))
 
