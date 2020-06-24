@@ -42,7 +42,7 @@
   "Add gravity according to the field for the mark.
 
   Provides: focus-sym and axis-sym"
-  [vega mark {:keys [field strength axis]
+  [vega mark {:keys [field type strength axis]
               :or   {type :band}}]
   (let [sym            (ovu/prop-sym vega [:gravity field axis] mark)
         [range orient] (if (= :x axis)
