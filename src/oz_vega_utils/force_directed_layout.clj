@@ -204,11 +204,24 @@
                                     :update {:x {:field :x}
                                              :y {:field :y}}}}))))
 
+(def diff-x "(datum.tx - datum.sx)")
+(def diff-y "(datum.ty - datum.sy)")
+(def phi (format "atan2(%s, %s)" diff-y diff-x))
+
+(defn set-angle
+  [degrees]
+  (format "%d + 180/PI * %s" degrees phi))
+
+(defn midway-plus
+  [plus axis]
+  (format "%d + (datum.s%s + datum.t%s)/2" plus axis axis))
+
 (defn add-link-labels
   "Add labels to links in visualization. Uses label-prop as node label
 
   Provides: sym"
-  [vega links-mark label-prop]
+  [vega links-mark label-prop & {:keys [extra-height]
+                                 :or   {extra-height 0}}]
   (let [sym   (ovu/prop-sym vega :labels links-mark)
         cache :cached_label]
     (-> vega
@@ -225,12 +238,20 @@
                                                 :sy {:field "datum.source.y"}
                                                 :tx {:field "datum.target.x"}
                                                 :ty {:field "datum.target.y"}}}
-                           :transform [{:type :formula
-                                        :as   :x
-                                        :expr "(datum.sx + datum.tx) / 2"}
-                                       {:type :formula
-                                        :as   :y
-                                        :expr "(datum.sy + datum.ty) / 2"}]}))))
+                           :transform (let [offset-formatter "%s * %s"]
+                                        [{:type :formula
+                                          :as   :x
+                                          :expr (format offset-formatter
+                                                  (format "sin(%s)" phi)
+                                                  (midway-plus extra-height "x"))}
+                                         {:type :formula
+                                          :as   :y
+                                          :expr (format (str "-" offset-formatter)
+                                                  (format "cos(%s)" phi)
+                                                  (midway-plus extra-height "y"))}
+                                         {:type :formula
+                                          :as   :angle
+                                          :expr (set-angle 180)}])}))))
 
 (defn add-link-directions
   [vega links-mark & {:keys [centered? extra-rad] }]
@@ -250,28 +271,21 @@
                                                 :ty {:field "datum.target.y"}
                                                 :r  {:signal :nodes_radius}
                                                 }}
-                           :transform (let [
-                                            offset-formatter "%s - (%s * datum.r) / %s"
-                                            diff-x           "(datum.tx - datum.sx)"
-                                            diff-y           "(datum.ty - datum.sy)"
-                                            path-length      (format "sqrt(%s * %s + %s * %s)" diff-x diff-x diff-y diff-y)
-                                            offset-x         (format offset-formatter
-                                                               "datum.tx"
-                                                               diff-x
-                                                               path-length)
-                                            offset-y         (format offset-formatter
-                                                               "datum.ty"
-                                                               diff-y
-                                                               path-length)
-                                            ]
+                           :transform (let [r-off (fn [axis]
+                                                    (if centered?
+                                                      (midway-plus extra-rad axis)
+                                                      (let [arrow-rad   "sqrt(datum.size)/2"
+                                                            path-length (format "sqrt(%s * %s + %s * %s)" diff-x diff-x diff-y diff-y)]
+                                                        (format "(%s - (%s + %d + %s)) + datum.s%s"
+                                                          path-length "datum.r"
+                                                          extra-rad arrow-rad axis))))
+                                            f     "%s * %s"]
                                         [{:type :formula
                                           :as   :x
-                                          :expr (let [dist-x "(datum.sx + datum.tx) / 2"]
-                                                  (if centered? dist-x offset-x))}
+                                          :expr (format f (format "cos(%s)" phi) (r-off "x"))}
                                          {:type :formula
                                           :as   :y
-                                          :expr (let [dist-y "(datum.sy + datum.ty) / 2"]
-                                                  (if centered? dist-y offset-y))}
+                                          :expr (format f (format "sin(%s)" phi) (r-off "y"))}
                                          {:type :formula
                                           :as   :angle
-                                          :expr (format "%d + %d/PI * atan2(%s, %s)" 90 180 diff-y diff-x)}])}))))
+                                          :expr (set-angle 90)}])}))))
