@@ -57,7 +57,7 @@
    #+END_SRC
 
    #+RESULTS:
-   : #'oz-vega-utils.force-directed-layout/width#'oz-vega-utils.force-directed-layout/height#'oz-vega-utils.force-directed-layout/canvas#'oz-vega-utils.force-directed-layout/vega
+   : #'user/width#'user/height#'user/canvas#'user/vega
 
 ** Make force layout
    Now we add our nodes and links from our data to the specification.
@@ -76,7 +76,7 @@
    #+END_SRC
 
    #+RESULTS:
-   : #'oz-vega-utils.force-directed-layout/force-layout
+   : #'user/force-layout
 
 ** Add forces
    Without any forces, the nodes will be stuck in the corner. As we add forces, UI components will be created for their parameters if a map is provided for the parameter.
@@ -104,7 +104,7 @@
    #+END_SRC
 
    #+RESULTS:
-   : #'oz-vega-utils.force-directed-layout/fl-with-forcesnil
+   : #'user/fl-with-forcesnil
 
 ** Add colors
    Next, we add colors to the marks for our nodes and links.
